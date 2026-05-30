@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import CreateBillForm from './CreateBillForm';
 import OngoingStaysList from './OngoingStaysList';
 import PastStaysList from './PastStaysList';
-import { Room, Customer, CustomerSnapshot, RoomBookingItem, Bill, SalesReceipt } from '../types';
+import { Room, Customer, CustomerSnapshot, RoomBookingItem, Bill, SalesReceipt, DiscountSettings } from '../types';
 import { Users, PlusCircle, Clock, History } from 'lucide-react';
 
 type GuestSubTab = 'new' | 'ongoing' | 'past';
@@ -19,6 +19,7 @@ interface GuestSectionProps {
   currencySymbol?: string;
   serviceChargeRate?: number;
   taxRate?: number;
+  discountSettings?: DiscountSettings;
 }
 
 export default function GuestSection({
@@ -32,7 +33,8 @@ export default function GuestSection({
   onSelectReceipt,
   currencySymbol = '$',
   serviceChargeRate = 10,
-  taxRate = 5
+  taxRate = 5,
+  discountSettings
 }: GuestSectionProps) {
   const [subTab, setSubTab] = useState<GuestSubTab>('new');
 
@@ -91,6 +93,7 @@ export default function GuestSection({
           currencySymbol={currencySymbol}
           serviceChargeRate={serviceChargeRate}
           taxRate={taxRate}
+          discountSettings={discountSettings}
         />
       )}
 

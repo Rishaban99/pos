@@ -13,6 +13,7 @@ interface FoodSectionProps {
   onEditFood: (foodId: string, updatedFields: Partial<FoodItem>) => void;
   onDeleteFood: (foodId: string) => void;
   onAddFood: (newItem: FoodItem) => void;
+  canManageCatalog?: boolean;
 }
 
 export default function FoodSection({
@@ -25,7 +26,8 @@ export default function FoodSection({
   currencySymbol = '$',
   onEditFood,
   onDeleteFood,
-  onAddFood
+  onAddFood,
+  canManageCatalog = true
 }: FoodSectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,14 +144,16 @@ export default function FoodSection({
           <p className="text-xs text-brand-500">Order refreshments and gourmet hotel diners</p>
         </div>
 
-        <button
-          id="add-food-btn-icon"
-          onClick={() => setIsAddingFood(true)}
-          className="md:order-last flex items-center gap-1.5 bg-hotel-700 hover:bg-hotel-800 text-white font-bold px-3 py-1.5 rounded-lg shadow-3xs cursor-pointer transition-all uppercase tracking-wider text-[10.5px] whitespace-nowrap self-start md:self-auto"
-        >
-          <Plus className="size-3.5" />
-          New Item
-        </button>
+        {canManageCatalog && (
+          <button
+            id="add-food-btn-icon"
+            onClick={() => setIsAddingFood(true)}
+            className="md:order-last flex items-center gap-1.5 bg-hotel-700 hover:bg-hotel-800 text-white font-bold px-3 py-1.5 rounded-lg shadow-3xs cursor-pointer transition-all uppercase tracking-wider text-[10.5px] whitespace-nowrap self-start md:self-auto"
+          >
+            <Plus className="size-3.5" />
+            New Item
+          </button>
+        )}
 
         {/* Dynamic Search Input with icon */}
         <div className="relative w-full md:w-72">
@@ -225,26 +229,30 @@ export default function FoodSection({
                         </span>
                       )}
 
-                      <button
-                        id={`edit-food-btn-${item.id}`}
-                        onClick={() => setEditingFood(item)}
-                        className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                        title="Edit Item Details"
-                      >
-                        <Pencil className="size-3.5" />
-                      </button>
-                      <button
-                        id={`delete-food-btn-${item.id}`}
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete "${item.name}" from the POS menu?`)) {
-                            onDeleteFood(item.id);
-                          }
-                        }}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                        title="Delete Item"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                      {canManageCatalog && (
+                        <>
+                          <button
+                            id={`edit-food-btn-${item.id}`}
+                            onClick={() => setEditingFood(item)}
+                            className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                            title="Edit Item Details"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <button
+                            id={`delete-food-btn-${item.id}`}
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete "${item.name}" from the POS menu?`)) {
+                                onDeleteFood(item.id);
+                              }
+                            }}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                            title="Delete Item"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 

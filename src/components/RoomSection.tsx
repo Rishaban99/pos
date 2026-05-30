@@ -10,6 +10,7 @@ interface RoomSectionProps {
   onEditRoom: (roomId: string, updatedFields: Partial<Room>) => void;
   onDeleteRoom: (roomId: string) => void;
   onAddRoom: (newRoom: Room) => void;
+  canManageCatalog?: boolean;
 }
 
 function getRoomGuest(bills: Bill[], roomId: string): string | null {
@@ -24,7 +25,8 @@ export default function RoomSection({
   currencySymbol = '$',
   onEditRoom,
   onDeleteRoom,
-  onAddRoom
+  onAddRoom,
+  canManageCatalog = true
 }: RoomSectionProps) {
   const [selectedType, setSelectedType] = useState<RoomType | 'All'>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'available' | 'booked'>('All');
@@ -127,14 +129,16 @@ export default function RoomSection({
         
         {/* Availability Statistics */}
         <div className="flex items-center gap-3 text-xs">
-          <button
-            id="add-room-btn-icon"
-            onClick={() => setIsAddingRoom(true)}
-            className="flex items-center gap-1.5 bg-hotel-700 hover:bg-hotel-800 text-white font-bold px-3 py-1.5 rounded-lg shadow-3xs cursor-pointer transition-all uppercase tracking-wider text-[10.5px]"
-          >
-            <Plus className="size-3.5" />
-            New Room
-          </button>
+          {canManageCatalog && (
+            <button
+              id="add-room-btn-icon"
+              onClick={() => setIsAddingRoom(true)}
+              className="flex items-center gap-1.5 bg-hotel-700 hover:bg-hotel-800 text-white font-bold px-3 py-1.5 rounded-lg shadow-3xs cursor-pointer transition-all uppercase tracking-wider text-[10.5px]"
+            >
+              <Plus className="size-3.5" />
+              New Room
+            </button>
+          )}
 
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
             <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -228,28 +232,30 @@ export default function RoomSection({
                       </span>
                     )}
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        id={`edit-room-btn-${room.id}`}
-                        onClick={() => setEditingRoom(room)}
-                        className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                        title="Edit Room Details"
-                      >
-                        <Pencil className="size-3.5" />
-                      </button>
-                      <button
-                        id={`delete-room-btn-${room.id}`}
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete Room ${room.roomNumber} (${room.name}) from the POS registry?`)) {
-                            onDeleteRoom(room.id);
-                          }
-                        }}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                        title="Delete Room"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </div>
+                    {canManageCatalog && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          id={`edit-room-btn-${room.id}`}
+                          onClick={() => setEditingRoom(room)}
+                          className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                          title="Edit Room Details"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button
+                          id={`delete-room-btn-${room.id}`}
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete Room ${room.roomNumber} (${room.name}) from the POS registry?`)) {
+                              onDeleteRoom(room.id);
+                            }
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                          title="Delete Room"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -276,18 +282,19 @@ export default function RoomSection({
                   )}
                 </div>
 
-                {/* Card footer CTA buttons */}
-                <div className="pt-2 border-t border-brand-50 flex items-center gap-2">
-                  <button
-                    id={`toggle-room-${room.id}`}
-                    onClick={() => onToggleRoomStatus(room.id)}
-                    title="Toggle occupied/available status"
-                    className="flex-1 p-1 px-2.5 text-[11px] font-medium border border-brand-200 rounded-lg text-brand-600 hover:bg-brand-50 hover:text-brand-800 transition-all flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <RefreshCw className="size-3" />
-                    {room.status === 'booked' ? 'Release Room' : 'Mark Booked'}
-                  </button>
-                </div>
+                {canManageCatalog && (
+                  <div className="pt-2 border-t border-brand-50 flex items-center gap-2">
+                    <button
+                      id={`toggle-room-${room.id}`}
+                      onClick={() => onToggleRoomStatus(room.id)}
+                      title="Toggle occupied/available status"
+                      className="flex-1 p-1 px-2.5 text-[11px] font-medium border border-brand-200 rounded-lg text-brand-600 hover:bg-brand-50 hover:text-brand-800 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className="size-3" />
+                      {room.status === 'booked' ? 'Release Room' : 'Mark Booked'}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

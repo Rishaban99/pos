@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Room, RoomType, RoomBookingItem, BoardPlan, BOARD_PLAN_PRICES, Customer, CustomerSnapshot } from '../types';
+import { Room, RoomType, RoomBookingItem, BoardPlan, BOARD_PLAN_PRICES, Customer, CustomerSnapshot, DiscountSettings } from '../types';
 import { buildRoomBookingItem, calculateBillTotals } from '../utils/billing';
 import { Bed, CalendarDays, Percent, Coffee, Plus, Trash2, User, Phone, Mail, CreditCard, Search } from 'lucide-react';
 
@@ -10,6 +10,7 @@ interface CreateBillFormProps {
   currencySymbol?: string;
   serviceChargeRate?: number;
   taxRate?: number;
+  discountSettings?: DiscountSettings;
 }
 
 export default function CreateBillForm({
@@ -18,7 +19,8 @@ export default function CreateBillForm({
   onCreateBill,
   currencySymbol = '$',
   serviceChargeRate = 10,
-  taxRate = 5
+  taxRate = 5,
+  discountSettings
 }: CreateBillFormProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -66,7 +68,7 @@ export default function CreateBillForm({
     const override = choice === 'auto' ? undefined : parseInt(choice, 10);
     const bChoice = getSelectedBoardPlan(room.id);
     const bPrice = BOARD_PLAN_PRICES[bChoice];
-    const item = buildRoomBookingItem(room, nights, override, bChoice, bPrice);
+    const item = buildRoomBookingItem(room, nights, override, bChoice, bPrice, discountSettings);
     setDraftRooms(prev => [...prev, item]);
   };
 
@@ -283,11 +285,9 @@ export default function CreateBillForm({
                       className="text-[10px] border border-brand-200 rounded px-1 py-0.5 max-w-[120px]"
                     >
                       <option value="auto">Auto</option>
-                      <option value="0">0%</option>
-                      <option value="5">5%</option>
-                      <option value="10">10%</option>
-                      <option value="15">15%</option>
-                      <option value="20">20%</option>
+                      {(discountSettings?.manualOptions ?? [0, 5, 10, 15, 20]).map(pct => (
+                        <option key={pct} value={String(pct)}>{pct}%</option>
+                      ))}
                     </select>
                   </div>
                   <button

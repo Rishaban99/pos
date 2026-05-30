@@ -13,6 +13,7 @@ interface AmenitySectionProps {
   onEditAmenity: (amenityId: string, updatedFields: Partial<AmenityItem>) => void;
   onDeleteAmenity: (amenityId: string) => void;
   onAddAmenity: (newItem: AmenityItem) => void;
+  canManageCatalog?: boolean;
 }
 
 export default function AmenitySection({
@@ -25,7 +26,8 @@ export default function AmenitySection({
   currencySymbol = '$',
   onEditAmenity,
   onDeleteAmenity,
-  onAddAmenity
+  onAddAmenity,
+  canManageCatalog = true
 }: AmenitySectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<AmenityCategory | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,12 +106,14 @@ export default function AmenitySection({
             </h2>
             <p className="text-xs text-brand-500">Minibar, laundry, spa, and hotel services</p>
           </div>
-          <button
-            onClick={() => setIsAddingAmenity(true)}
-            className="flex items-center gap-1.5 bg-hotel-700 hover:bg-hotel-800 text-white font-bold px-3 py-1.5 rounded-lg text-[10.5px] uppercase"
-          >
-            <Plus className="size-3.5" /> New Item
-          </button>
+          {canManageCatalog && (
+            <button
+              onClick={() => setIsAddingAmenity(true)}
+              className="flex items-center gap-1.5 bg-hotel-700 hover:bg-hotel-800 text-white font-bold px-3 py-1.5 rounded-lg text-[10.5px] uppercase"
+            >
+              <Plus className="size-3.5" /> New Item
+            </button>
+          )}
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-brand-400" />
             <input
@@ -154,8 +158,12 @@ export default function AmenitySection({
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${getCategoryColor(item.category)}`}>{item.category}</span>
                     <div className="flex gap-1">
                       {isAdded && <span className="text-[10px] text-hotel-700 font-semibold bg-hotel-100 px-2 py-0.5 rounded-full flex items-center gap-0.5"><Check className="size-3" /> Added</span>}
-                      <button onClick={() => setEditingAmenity(item)} className="p-1 text-slate-400 hover:text-indigo-600 rounded"><Pencil className="size-3.5" /></button>
-                      <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) onDeleteAmenity(item.id); }} className="p-1 text-slate-400 hover:text-rose-600 rounded"><Trash2 className="size-3.5" /></button>
+                      {canManageCatalog && (
+                        <>
+                          <button onClick={() => setEditingAmenity(item)} className="p-1 text-slate-400 hover:text-indigo-600 rounded"><Pencil className="size-3.5" /></button>
+                          <button onClick={() => { if (window.confirm(`Delete "${item.name}"?`)) onDeleteAmenity(item.id); }} className="p-1 text-slate-400 hover:text-rose-600 rounded"><Trash2 className="size-3.5" /></button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <h3 className="text-sm font-semibold text-brand-800 min-h-[2.25rem]">{item.name}</h3>

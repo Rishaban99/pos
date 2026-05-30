@@ -8,6 +8,7 @@ interface DailySalesSummaryProps {
   onClearReceipts: () => void;
   currencySymbol?: string;
   taxRate?: number;
+  canClearLogs?: boolean;
 }
 
 export default function DailySalesSummary({
@@ -15,7 +16,8 @@ export default function DailySalesSummary({
   onSelectReceipt,
   onClearReceipts,
   currencySymbol = '$',
-  taxRate = 5
+  taxRate = 5,
+  canClearLogs = true
 }: DailySalesSummaryProps) {
   // Aggregate sales figures
   const totalTransactions = receipts.length;
@@ -36,7 +38,7 @@ export default function DailySalesSummary({
           <p className="text-xs text-brand-500">Operational performance and cash drawer tracking</p>
         </div>
 
-        {totalTransactions > 0 && (
+        {totalTransactions > 0 && canClearLogs && (
           <button
             id="clear-logs-btn"
             onClick={onClearReceipts}

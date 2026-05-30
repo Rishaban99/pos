@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Room, FoodItem, AmenityItem, RoomBookingItem, FoodOrderItem, AmenityChargeItem, SalesReceipt, Bill, Customer, CustomerSnapshot, TerminalSettings, CURRENCY_SYMBOLS } from './types';
+import { Room, FoodItem, AmenityItem, RoomBookingItem, FoodOrderItem, AmenityChargeItem, SalesReceipt, Bill, Customer, CustomerSnapshot, TerminalSettings, CURRENCY_SYMBOLS, DiscountSettings, DEFAULT_DISCOUNT_SETTINGS } from './types';
 import { INITIAL_ROOMS, INITIAL_FOOD_ITEMS, INITIAL_AMENITY_ITEMS } from './data';
 import { calculateBillTotals, generateBillNumber, generateInvoiceNumber, normalizeBill, getHeldRoomIds } from './utils/billing';
 import RoomSection from './components/RoomSection';
@@ -9,6 +9,10 @@ import GuestSection from './components/GuestSection';
 import BillingSummary from './components/BillingSummary';
 import DailySalesSummary from './components/DailySalesSummary';
 import InvoiceModal from './components/InvoiceModal';
+import LoginScreen from './components/LoginScreen';
+import StaffManagementSection from './components/StaffManagementSection';
+import { useAuth } from './context/AuthContext';
+import { getRoleLabel } from './auth/permissions';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building, 
@@ -30,10 +34,24 @@ import {
   Printer,
   Sparkles,
   DollarSign,
-  Users
+  Users,
+  UserCog,
+  Percent
 } from 'lucide-react';
 
+type LeftTab = 'guests' | 'rooms' | 'food' | 'amenities' | 'logs' | 'staff';
+
 export default function App() {
+  const { session, isReady, logout, hasPermission } = useAuth();
+
+  const canManageRooms = hasPermission('rooms:manage');
+  const canManageFood = hasPermission('food:manage');
+  const canManageAmenities = hasPermission('amenities:manage');
+  const canViewLedger = hasPermission('ledger:view');
+  const canManageSettings = hasPermission('settings:manage');
+  const canManageUsers = hasPermission('users:manage');
+  const canManageDiscounts = hasPermission('discounts:manage');
+
   // 1. Core State
   const [rooms, setRooms] = useState<Room[]>(() => {
     const saved = localStorage.getItem('hotel_pos_rooms');
@@ -99,11 +117,32 @@ export default function App() {
     };
   });
 
+  const [discountSettings, setDiscountSettings] = useState<DiscountSettings>(() => {
+    const saved = localStorage.getItem('hotel_pos_discount_settings');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // use fallback
+      }
+    }
+    return DEFAULT_DISCOUNT_SETTINGS;
+  });
+
   // Settings Modal open trigger
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Active view on the Left Pane
-  const [activeLeftTab, setActiveLeftTab] = useState<'guests' | 'rooms' | 'food' | 'amenities' | 'logs'>('guests');
+  const [activeLeftTab, setActiveLeftTab] = useState<LeftTab>('guests');
+
+  const visibleTabs = useMemo(() => {
+    const tabs: LeftTab[] = ['guests'];
+    if (canManageRooms) tabs.push('rooms');
+    tabs.push('food', 'amenities');
+    if (canViewLedger) tabs.push('logs');
+    if (canManageUsers) tabs.push('staff');
+    return tabs;
+  }, [canManageRooms, canViewLedger, canManageUsers]);
 
   const activeBill = useMemo(
     () => bills.find(b => b.id === activeBillId && b.status === 'held') ?? null,
@@ -197,6 +236,16 @@ export default function App() {
     localStorage.setItem('hotel_pos_terminal_settings', JSON.stringify(terminalSettings));
   }, [terminalSettings]);
 
+  useEffect(() => {
+    localStorage.setItem('hotel_pos_discount_settings', JSON.stringify(discountSettings));
+  }, [discountSettings]);
+
+  useEffect(() => {
+    if (!visibleTabs.includes(activeLeftTab)) {
+      setActiveLeftTab('guests');
+    }
+  }, [visibleTabs, activeLeftTab]);
+
   // Clock ticks
   useEffect(() => {
     const interval = setInterval(() => {
@@ -229,6 +278,7 @@ export default function App() {
 
   // Room Management CRUD handlers
   const handleEditRoom = (roomId: string, updatedFields: Partial<Room>) => {
+    if (!hasPermission('rooms:manage')) return;
     setRooms(prev => prev.map(room => room.id === roomId ? { ...room, ...updatedFields } : room));
 
     updateAllBillsRoomBooking(roomId, booking => {
@@ -248,6 +298,7 @@ export default function App() {
   };
 
   const handleDeleteRoom = (roomId: string) => {
+    if (!hasPermission('rooms:manage')) return;
     setRooms(prev => prev.filter(room => room.id !== roomId));
     playBeep(350, 0.1);
     setCheckoutNotice("Room removed from active registry.");
@@ -255,6 +306,7 @@ export default function App() {
   };
 
   const handleAddRoom = (newRoom: Room) => {
+    if (!hasPermission('rooms:manage')) return;
     setRooms(prev => [...prev, newRoom]);
     playBeep(720, 0.1);
     setCheckoutNotice(`Created new Room ${newRoom.roomNumber} successfully.`);
@@ -263,6 +315,7 @@ export default function App() {
 
   // Food Management CRUD handlers
   const handleEditFood = (foodId: string, updatedFields: Partial<FoodItem>) => {
+    if (!hasPermission('food:manage')) return;
     setFoodItems(prev => prev.map(item => item.id === foodId ? { ...item, ...updatedFields } : item));
 
     setBills(prev => prev.map(bill => ({
@@ -281,6 +334,7 @@ export default function App() {
   };
 
   const handleDeleteFood = (foodId: string) => {
+    if (!hasPermission('food:manage')) return;
     setFoodItems(prev => prev.filter(item => item.id !== foodId));
     setBills(prev => prev.map(bill => ({
       ...bill,
@@ -292,6 +346,7 @@ export default function App() {
   };
 
   const handleAddFood = (newItem: FoodItem) => {
+    if (!hasPermission('food:manage')) return;
     setFoodItems(prev => [...prev, newItem]);
     playBeep(720, 0.1);
     setCheckoutNotice(`Menu item "${newItem.name}" added successfully.`);
@@ -300,6 +355,7 @@ export default function App() {
 
   // Amenity CRUD handlers
   const handleEditAmenity = (amenityId: string, updatedFields: Partial<AmenityItem>) => {
+    if (!hasPermission('amenities:manage')) return;
     setAmenityItems(prev => prev.map(item => item.id === amenityId ? { ...item, ...updatedFields } : item));
     setBills(prev => prev.map(bill => ({
       ...bill,
@@ -314,6 +370,7 @@ export default function App() {
   };
 
   const handleDeleteAmenity = (amenityId: string) => {
+    if (!hasPermission('amenities:manage')) return;
     setAmenityItems(prev => prev.filter(item => item.id !== amenityId));
     setBills(prev => prev.map(bill => ({
       ...bill,
@@ -323,6 +380,7 @@ export default function App() {
   };
 
   const handleAddAmenity = (newItem: AmenityItem) => {
+    if (!hasPermission('amenities:manage')) return;
     setAmenityItems(prev => [...prev, newItem]);
     playBeep(720, 0.1);
   };
@@ -333,6 +391,7 @@ export default function App() {
     roomBookings: RoomBookingItem[],
     existingCustomerId?: string
   ) => {
+    if (!hasPermission('bills:create')) return;
     let customerId = existingCustomerId;
     if (!customerId) {
       const newCustomer: Customer = {
@@ -379,6 +438,7 @@ export default function App() {
   };
 
   const handleAddFoodToBill = (item: FoodItem) => {
+    if (!hasPermission('bills:update')) return;
     if (!activeBillId) return;
     updateActiveBill(bill => ({
       ...bill,
@@ -400,6 +460,7 @@ export default function App() {
   };
 
   const handleAddAmenityToBill = (item: AmenityItem) => {
+    if (!hasPermission('bills:update')) return;
     if (!activeBillId) return;
     updateActiveBill(bill => ({
       ...bill,
@@ -421,6 +482,7 @@ export default function App() {
   };
 
   const handleUpdateFoodQuantity = (itemId: string, delta: number) => {
+    if (!hasPermission('bills:update')) return;
     if (!activeBillId) return;
     updateActiveBill(bill => ({
       ...bill,
@@ -435,12 +497,14 @@ export default function App() {
   };
 
   const handleRemoveFood = (foodId: string) => {
+    if (!hasPermission('bills:update')) return;
     if (!activeBillId) return;
     updateActiveBill(bill => ({ ...bill, foodOrders: bill.foodOrders.filter(item => item.id !== foodId) }));
     playBeep(400, 0.06);
   };
 
   const handleUpdateAmenityQuantity = (itemId: string, delta: number) => {
+    if (!hasPermission('bills:update')) return;
     if (!activeBillId) return;
     updateActiveBill(bill => ({
       ...bill,
@@ -455,12 +519,14 @@ export default function App() {
   };
 
   const handleRemoveAmenity = (amenityId: string) => {
+    if (!hasPermission('bills:update')) return;
     if (!activeBillId) return;
     updateActiveBill(bill => ({ ...bill, amenityCharges: bill.amenityCharges.filter(item => item.id !== amenityId) }));
     playBeep(400, 0.06);
   };
 
   const handleCloseBill = (cashReceived: number) => {
+    if (!hasPermission('bills:complete')) return;
     const bill = getActiveHeldBill();
     if (!bill) return;
 
@@ -527,6 +593,7 @@ export default function App() {
 
   // Toggle Room occupancy status inside database registry (occupied/available)
   const handleToggleRoomStatus = (roomId: string) => {
+    if (!hasPermission('rooms:manage')) return;
     setRooms(prev => prev.map(room => {
       if (room.id === roomId) {
         const nextStatus = room.status === 'booked' ? 'available' : 'booked';
@@ -544,6 +611,7 @@ export default function App() {
 
   // Clear shift receipts history logs
   const handleClearShiftReceipts = () => {
+    if (!hasPermission('ledger:clear')) return;
     if (window.confirm("Perform final drawer clearance? This will erase current shift audit trails permanently.")) {
       setReceipts([]);
       localStorage.removeItem('hotel_pos_receipts');
@@ -557,6 +625,18 @@ export default function App() {
   };
 
   const currencySymbol = CURRENCY_SYMBOLS[terminalSettings.currency] || '$';
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-sm text-slate-500 font-medium">Loading terminal...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-900">
@@ -580,21 +660,36 @@ export default function App() {
 
           {/* Time and Shift Metadata HUD */}
           <div className="flex items-center gap-4 sm:gap-6 text-sm">
-            {/* Settings button trigger */}
-            <button
-              id="terminal-settings-toggle-btn"
-              onClick={() => { setIsSettingsOpen(true); playBeep(700, 0.08); }}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-lg text-xs font-bold leading-none flex items-center gap-1.5 transition-all shadow-3xs hover:shadow-2xs cursor-pointer border border-slate-200"
-            >
-              <Settings className="size-3.5 text-indigo-600" />
-              Terminal Setup
-            </button>
+            {canManageSettings && (
+              <button
+                id="terminal-settings-toggle-btn"
+                onClick={() => { setIsSettingsOpen(true); playBeep(700, 0.08); }}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-lg text-xs font-bold leading-none flex items-center gap-1.5 transition-all shadow-3xs hover:shadow-2xs cursor-pointer border border-slate-200"
+              >
+                <Settings className="size-3.5 text-indigo-600" />
+                Terminal Setup
+              </button>
+            )}
 
-            {/* Shift Agent info */}
             <div className="hidden md:block text-right">
-              <p className="text-sm font-semibold text-slate-800">{terminalSettings.operatorName}</p>
-              <p className="text-xs text-slate-400">Terminal #{terminalSettings.stationId}</p>
+              <p className="text-sm font-semibold text-slate-800">{session.displayName}</p>
+              <p className="text-xs text-slate-400 flex items-center justify-end gap-1.5">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase">
+                  {getRoleLabel(session.role)}
+                </span>
+                Terminal #{terminalSettings.stationId}
+              </p>
             </div>
+
+            <button
+              id="logout-btn"
+              onClick={() => { logout(); playBeep(400, 0.08); }}
+              className="bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 px-3 py-1.5 rounded-lg text-xs font-bold leading-none flex items-center gap-1.5 transition-all cursor-pointer border border-slate-200"
+              title="Sign out"
+            >
+              <LogOut className="size-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
             
             <div className="hidden sm:block h-10 w-px bg-slate-200"></div>
 
@@ -641,6 +736,7 @@ export default function App() {
               )}
             </button>
 
+            {canManageRooms && (
             <button
               id="tab-btn-rooms"
               onClick={() => { setActiveLeftTab('rooms'); playBeep(650, 0.05); }}
@@ -653,6 +749,7 @@ export default function App() {
               <Building className="size-4" />
               Rooms
             </button>
+            )}
             
             <button
               id="tab-btn-food"
@@ -680,6 +777,7 @@ export default function App() {
               Amenities
             </button>
 
+            {canViewLedger && (
             <button
               id="tab-btn-logs"
               onClick={() => { setActiveLeftTab('logs'); playBeep(650, 0.05); }}
@@ -697,6 +795,22 @@ export default function App() {
                 </span>
               )}
             </button>
+            )}
+
+            {canManageUsers && (
+            <button
+              id="tab-btn-staff"
+              onClick={() => { setActiveLeftTab('staff'); playBeep(650, 0.05); }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                activeLeftTab === 'staff'
+                  ? 'bg-white text-indigo-700 shadow-sm font-bold'
+                  : 'text-slate-600 hover:bg-slate-250/30'
+              }`}
+            >
+              <UserCog className="size-4" />
+              Staff
+            </button>
+            )}
           </div>
 
           {/* ACTIVE ASSIGNED COMPONENT CONTAINER PANE WITH FADE SEAMLESS DESIGN */}
@@ -714,10 +828,11 @@ export default function App() {
                 currencySymbol={currencySymbol}
                 serviceChargeRate={terminalSettings.serviceChargeRate}
                 taxRate={terminalSettings.taxRate}
+                discountSettings={discountSettings}
               />
             )}
 
-            {activeLeftTab === 'rooms' && (
+            {activeLeftTab === 'rooms' && canManageRooms && (
               <RoomSection
                 rooms={rooms}
                 bills={bills}
@@ -726,6 +841,7 @@ export default function App() {
                 onDeleteRoom={handleDeleteRoom}
                 onAddRoom={handleAddRoom}
                 currencySymbol={currencySymbol}
+                canManageCatalog={canManageRooms}
               />
             )}
 
@@ -741,6 +857,7 @@ export default function App() {
                 onDeleteFood={handleDeleteFood}
                 onAddFood={handleAddFood}
                 currencySymbol={currencySymbol}
+                canManageCatalog={canManageFood}
               />
             )}
 
@@ -756,17 +873,23 @@ export default function App() {
                 onDeleteAmenity={handleDeleteAmenity}
                 onAddAmenity={handleAddAmenity}
                 currencySymbol={currencySymbol}
+                canManageCatalog={canManageAmenities}
               />
             )}
 
-            {activeLeftTab === 'logs' && (
+            {activeLeftTab === 'logs' && canViewLedger && (
               <DailySalesSummary
                 receipts={receipts}
                 onSelectReceipt={(r) => { setSelectedReceiptForInvoice(r); playBeep(750, 0.08); }}
                 onClearReceipts={handleClearShiftReceipts}
                 currencySymbol={currencySymbol}
                 taxRate={terminalSettings.taxRate}
+                canClearLogs={hasPermission('ledger:clear')}
               />
+            )}
+
+            {activeLeftTab === 'staff' && canManageUsers && (
+              <StaffManagementSection />
             )}
           </div>
         </div>
@@ -803,7 +926,7 @@ export default function App() {
 
       {/* TERMINAL SETTINGS OVERLAY MODAL */}
       <AnimatePresence>
-        {isSettingsOpen && (
+        {isSettingsOpen && canManageSettings && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -967,6 +1090,76 @@ export default function App() {
                   </div>
                 </div>
 
+                {canManageDiscounts && (
+                  <div className="pt-2 border-t border-slate-100 space-y-3">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                      <Percent className="size-3.5" /> Discount Rules
+                    </label>
+                    <p className="text-[10px] text-slate-500">Auto rules apply when &quot;Auto&quot; is selected at check-in. Highest matching min nights wins.</p>
+                    <div className="space-y-2">
+                      {discountSettings.autoRules.map((rule, index) => (
+                        <div key={index} className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-slate-400 uppercase">Min nights</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={rule.minNights}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10) || 1;
+                                setDiscountSettings(prev => ({
+                                  ...prev,
+                                  autoRules: prev.autoRules.map((r, i) =>
+                                    i === index ? { ...r, minNights: val } : r
+                                  ),
+                                }));
+                              }}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-400 uppercase">Discount %</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={rule.discountPercent}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10) || 0;
+                                setDiscountSettings(prev => ({
+                                  ...prev,
+                                  autoRules: prev.autoRules.map((r, i) =>
+                                    i === index ? { ...r, discountPercent: val } : r
+                                  ),
+                                }));
+                              }}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 uppercase">Manual options (comma-separated %)</label>
+                      <input
+                        type="text"
+                        value={discountSettings.manualOptions.join(', ')}
+                        onChange={(e) => {
+                          const options = e.target.value
+                            .split(',')
+                            .map(s => parseInt(s.trim(), 10))
+                            .filter(n => !Number.isNaN(n) && n >= 0 && n <= 100);
+                          if (options.length > 0) {
+                            setDiscountSettings(prev => ({ ...prev, manualOptions: options }));
+                          }
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold mt-1"
+                        placeholder="0, 5, 10, 15, 20"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Database Initialization Reset */}
                 <div className="pt-2 border-t border-slate-100">
                   <div className="p-3 bg-rose-50 border border-rose-100 rounded-lg flex items-center justify-between gap-3">
@@ -981,6 +1174,8 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         if (window.confirm("Perform initial shift startup initialization? This wipes lodging ledger, restaurant orders and logs for the station.")) {
+                          const preservedUsers = localStorage.getItem('hotel_pos_users');
+                          const preservedDiscounts = localStorage.getItem('hotel_pos_discount_settings');
                           setReceipts([]);
                           setBills([]);
                           setCustomers([]);
@@ -989,6 +1184,8 @@ export default function App() {
                           setFoodItems(INITIAL_FOOD_ITEMS);
                           setAmenityItems(INITIAL_AMENITY_ITEMS);
                           localStorage.clear();
+                          if (preservedUsers) localStorage.setItem('hotel_pos_users', preservedUsers);
+                          if (preservedDiscounts) localStorage.setItem('hotel_pos_discount_settings', preservedDiscounts);
                           try { sessionStorage.removeItem('hotel_pos_active_bill_id'); } catch { /* ignore */ }
                           setIsSettingsOpen(false);
                           setCheckoutNotice("POS database synchronized and restarted.");

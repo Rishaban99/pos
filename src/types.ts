@@ -1,3 +1,21 @@
+export interface DiscountAutoRule {
+  minNights: number;
+  discountPercent: number;
+}
+
+export interface DiscountSettings {
+  autoRules: DiscountAutoRule[];
+  manualOptions: number[];
+}
+
+export const DEFAULT_DISCOUNT_SETTINGS: DiscountSettings = {
+  autoRules: [
+    { minNights: 5, discountPercent: 15 },
+    { minNights: 3, discountPercent: 10 },
+  ],
+  manualOptions: [0, 5, 10, 15, 20],
+};
+
 export type RoomType = 'Single' | 'Double' | 'Deluxe' | 'Family Suite';
 
 export type BoardPlan = 'Room Only' | 'Bed & Breakfast (BB)' | 'Half Board (HB)' | 'Full Board (FB)';

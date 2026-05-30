@@ -1,4 +1,22 @@
-import { Room, RoomBookingItem, FoodOrderItem, AmenityChargeItem, BoardPlan, Bill } from '../types';
+import {
+  Room,
+  RoomBookingItem,
+  FoodOrderItem,
+  AmenityChargeItem,
+  BoardPlan,
+  Bill,
+  DiscountSettings,
+  DEFAULT_DISCOUNT_SETTINGS,
+} from '../types';
+
+export function resolveAutoDiscountPercent(
+  nights: number,
+  discountSettings: DiscountSettings = DEFAULT_DISCOUNT_SETTINGS
+): number {
+  const sorted = [...discountSettings.autoRules].sort((a, b) => b.minNights - a.minNights);
+  const match = sorted.find(rule => nights > rule.minNights);
+  return match?.discountPercent ?? 0;
+}
 
 export interface BillTotals {
   roomChargesOriginal: number;
@@ -17,7 +35,8 @@ export function buildRoomBookingItem(
   nights: number,
   discountOverride?: number,
   boardPlan?: BoardPlan,
-  boardPlanPricePerNight?: number
+  boardPlanPricePerNight?: number,
+  discountSettings: DiscountSettings = DEFAULT_DISCOUNT_SETTINGS
 ): RoomBookingItem {
   const actualBoardPlan = boardPlan || 'Room Only';
   const boardPriceRate = boardPlanPricePerNight || 0;
@@ -26,10 +45,8 @@ export function buildRoomBookingItem(
   let discountPct = 0;
   if (discountOverride !== undefined) {
     discountPct = discountOverride;
-  } else if (nights > 5) {
-    discountPct = 15;
-  } else if (nights > 3) {
-    discountPct = 10;
+  } else {
+    discountPct = resolveAutoDiscountPercent(nights, discountSettings);
   }
 
   const basePrice = totalRatePerNight * nights;
