@@ -51,8 +51,18 @@ export default function InvoiceModal({ receipt, onClose, currencySymbol = '$' }:
           <div className="border-t border-b border-dashed border-brand-350 py-3 grid grid-cols-2 gap-y-1.5 text-xs font-mono text-brand-700">
             <div>INVOICE: <span className="font-bold font-sans text-brand-900">{receipt.invoiceNumber}</span></div>
             <div className="text-right">DATE: <span className="font-sans text-brand-900">{new Date(receipt.timestamp).toLocaleString()}</span></div>
-            <div>STATION: <span className="font-sans text-brand-900">Front Desk 01</span></div>
-            <div className="text-right">MODE: <span className="font-bold text-emerald-700">CASH BILLING</span></div>
+            {receipt.billNumber && (
+              <div>FOLIO: <span className="font-bold font-sans text-brand-900">{receipt.billNumber}</span></div>
+            )}
+            {receipt.customer && (
+              <div className={receipt.billNumber ? 'text-right' : ''}>
+                GUEST: <span className="font-sans font-bold text-brand-900">{receipt.customer.name}</span>
+              </div>
+            )}
+            {receipt.customer?.phone && (
+              <div>TEL: <span className="font-sans text-brand-900">{receipt.customer.phone}</span></div>
+            )}
+            <div className={receipt.customer?.phone ? 'text-right' : ''}>MODE: <span className="font-bold text-emerald-700">CASH BILLING</span></div>
           </div>
 
           {/* ITEM FOLIO SUMMARY */}
@@ -110,6 +120,28 @@ export default function InvoiceModal({ receipt, onClose, currencySymbol = '$' }:
                 </div>
               </div>
             )}
+
+            {/* Amenities charges */}
+            {receipt.amenities && receipt.amenities.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-brand-100">
+                <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">ROOM AMENITIES</span>
+                <div className="space-y-2">
+                  {receipt.amenities.map((amenity, idx) => (
+                    <div key={idx} className="text-xs flex justify-between items-center gap-3">
+                      <div>
+                        <div className="font-bold text-brand-900">{amenity.name}</div>
+                        <div className="text-brand-500 text-[11px] font-mono pl-2">
+                          Qty: {amenity.quantity} × {currencySymbol}{amenity.price.toFixed(2)}
+                        </div>
+                      </div>
+                      <span className="font-mono font-bold text-brand-850">
+                        {currencySymbol}{(amenity.price * amenity.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* TAX AND TOTAL RECIEPT SLIP */}
@@ -128,6 +160,12 @@ export default function InvoiceModal({ receipt, onClose, currencySymbol = '$' }:
               <span>Food &amp; Bar Orders:</span>
               <span className="font-mono">{currencySymbol}{receipt.foodCharges.toFixed(2)}</span>
             </div>
+            {(receipt.amenityCharges ?? 0) > 0 && (
+              <div className="flex justify-between">
+                <span>Room Amenities:</span>
+                <span className="font-mono">{currencySymbol}{(receipt.amenityCharges ?? 0).toFixed(2)}</span>
+              </div>
+            )}
             {receipt.foodCharges > 0 && (
               <div className="flex justify-between font-medium text-brand-600 font-mono">
                 <span>Food Service Charge:</span>

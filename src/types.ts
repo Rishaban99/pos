@@ -48,13 +48,23 @@ export interface FoodItem {
   available: boolean;
 }
 
+export type AmenityCategory = 'minibar' | 'laundry' | 'spa' | 'services';
+
+export interface AmenityItem {
+  id: string;
+  name: string;
+  price: number;
+  category: AmenityCategory;
+  available: boolean;
+}
+
 export interface RoomBookingItem {
-  id: string; // matches room id
+  id: string;
   name: string;
   roomNumber: string;
   pricePerNight: number;
   nights: number;
-  discountPercentage: number; // 10% for > 3 nights, 15% for > 5 nights
+  discountPercentage: number;
   discountAmount: number;
   boardPlan?: BoardPlan;
   boardPlanPricePerNight?: number;
@@ -62,19 +72,63 @@ export interface RoomBookingItem {
 }
 
 export interface FoodOrderItem {
-  id: string; // matches food item id
+  id: string;
   name: string;
   price: number;
   quantity: number;
   totalPrice: number;
 }
 
+export interface AmenityChargeItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  totalPrice: number;
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  idNumber?: string;
+  createdAt: string;
+}
+
+export interface CustomerSnapshot {
+  name: string;
+  phone: string;
+  email?: string;
+  idNumber?: string;
+}
+
+export type BillStatus = 'held' | 'closed';
+
+export interface Bill {
+  id: string;
+  billNumber: string;
+  customerId: string;
+  customer: CustomerSnapshot;
+  status: BillStatus;
+  createdAt: string;
+  closedAt?: string;
+  roomBookings: RoomBookingItem[];
+  foodOrders: FoodOrderItem[];
+  amenityCharges: AmenityChargeItem[];
+  receiptId?: string;
+}
+
 export interface SalesReceipt {
   id: string;
   invoiceNumber: string;
   timestamp: string;
+  billId?: string;
+  billNumber?: string;
+  customer?: CustomerSnapshot;
   roomCharges: number;
   foodCharges: number;
+  amenityCharges?: number;
   subtotal: number;
   roomDiscount: number;
   tax: number;
@@ -92,6 +146,11 @@ export interface SalesReceipt {
     boardPlanPricePerNight?: number;
   }[];
   foods: {
+    name: string;
+    quantity: number;
+    price: number;
+  }[];
+  amenities?: {
     name: string;
     quantity: number;
     price: number;

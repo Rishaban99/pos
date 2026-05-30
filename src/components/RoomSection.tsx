@@ -1,29 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Room, RoomType, RoomBookingItem, BoardPlan, BOARD_PLAN_PRICES } from '../types';
-import { Bed, CalendarDays, Percent, ShieldCheck, ShieldAlert, Plus, RefreshCw, Coffee, Pencil, Trash2, X } from 'lucide-react';
+import { Room, RoomType, Bill } from '../types';
+import { Bed, ShieldCheck, ShieldAlert, Plus, RefreshCw, Pencil, Trash2, X, User } from 'lucide-react';
 
 interface RoomSectionProps {
   rooms: Room[];
-  onAddRoomToBill: (
-    room: Room,
-    nights: number,
-    discountOverride?: number,
-    boardPlan?: BoardPlan,
-    boardPlanPricePerNight?: number
-  ) => void;
+  bills: Bill[];
   onToggleRoomStatus: (roomId: string) => void;
-  currentRoomBookings: RoomBookingItem[];
   currencySymbol?: string;
   onEditRoom: (roomId: string, updatedFields: Partial<Room>) => void;
   onDeleteRoom: (roomId: string) => void;
   onAddRoom: (newRoom: Room) => void;
 }
 
+function getRoomGuest(bills: Bill[], roomId: string): string | null {
+  const held = bills.find(b => b.status === 'held' && b.roomBookings.some(r => r.id === roomId));
+  return held ? held.customer.name : null;
+}
+
 export default function RoomSection({
   rooms,
-  onAddRoomToBill,
+  bills,
   onToggleRoomStatus,
-  currentRoomBookings,
   currencySymbol = '$',
   onEditRoom,
   onDeleteRoom,
@@ -31,9 +28,6 @@ export default function RoomSection({
 }: RoomSectionProps) {
   const [selectedType, setSelectedType] = useState<RoomType | 'All'>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'available' | 'booked'>('All');
-  
-  // Keep room-specific night counts in local state
-  const [nightsInput, setNightsInput] = useState<Record<string, number>>({});
 
   // Modals / Editor States
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -108,41 +102,6 @@ export default function RoomSection({
     });
     setEditingRoom(null);
   };
-  
-  // Keep room-specific custom discount overrides in local state
-  const [selectedDiscounts, setSelectedDiscounts] = useState<Record<string, string>>({});
-
-  // Keep roomboarding selection in local state
-  const [selectedBoardPlans, setSelectedBoardPlans] = useState<Record<string, BoardPlan>>({});
-
-  const getNights = (roomId: string) => nightsInput[roomId] || 1;
-
-  const handleNightsChange = (roomId: string, value: number) => {
-    const val = Math.max(1, Math.min(30, value));
-    setNightsInput(prev => ({ ...prev, [roomId]: val }));
-  };
-
-  const getSelectedDiscount = (roomId: string) => selectedDiscounts[roomId] || 'auto';
-
-  const handleDiscountChange = (roomId: string, value: string) => {
-    setSelectedDiscounts(prev => ({ ...prev, [roomId]: value }));
-  };
-
-  const getSelectedBoardPlan = (roomId: string): BoardPlan => selectedBoardPlans[roomId] || 'Room Only';
-
-  const handleBoardPlanChange = (roomId: string, value: BoardPlan) => {
-    setSelectedBoardPlans(prev => ({ ...prev, [roomId]: value }));
-  };
-
-  const getDiscountPreview = (nights: number, discountChoice: string) => {
-    if (discountChoice !== 'auto') {
-      const pct = parseInt(discountChoice, 10);
-      return { pct, text: `${pct}% Manual Discount` };
-    }
-    if (nights > 5) return { pct: 15, text: '15% Loyalty Discount' };
-    if (nights > 3) return { pct: 10, text: '10% Multi-night Discount' };
-    return { pct: 0, text: null };
-  };
 
   // Filters
   const filteredRooms = rooms.filter(room => {
@@ -163,7 +122,7 @@ export default function RoomSection({
             <Bed className="text-hotel-600 size-5" />
             Luxe Haven Room Suites
           </h2>
-          <p className="text-xs text-brand-500">Manage bookings, durations, and room status</p>
+          <p className="text-xs text-brand-500">Room inventory and occupancy status</p>
         </div>
         
         {/* Availability Statistics */}
@@ -235,20 +194,15 @@ export default function RoomSection({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredRooms.map(room => {
-            const nights = getNights(room.id);
-            const discountChoice = getSelectedDiscount(room.id);
-            const { pct, text } = getDiscountPreview(nights, discountChoice);
-            const isAlreadyAdded = currentRoomBookings.some(item => item.id === room.id);
-            
+            const guestName = getRoomGuest(bills, room.id);
+
             return (
               <div
                 key={room.id}
                 id={`room-card-${room.id}`}
                 className={`relative flex flex-col justify-between bg-white rounded-2xl border transition-all duration-300 p-4 shadow-xs hover:shadow-md ${
-                  room.status === 'booked' 
-                    ? 'border-amber-200 bg-amber-50/10' 
-                    : isAlreadyAdded 
-                    ? 'border-hotel-300 bg-hotel-50/20' 
+                  room.status === 'booked'
+                    ? 'border-amber-200 bg-amber-50/10'
                     : 'border-brand-100'
                 }`}
               >
@@ -308,120 +262,16 @@ export default function RoomSection({
                     </span>
                   </div>
 
-                  {/* Stay control (Only if available for booking and not already added) */}
-                  {room.status === 'available' && !isAlreadyAdded && (
-                    <div className="bg-brand-50 p-2 rounded-lg space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium text-brand-800 flex items-center gap-1">
-                          <CalendarDays className="size-3.5 text-brand-500" />
-                          Nights:
-                        </label>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            id={`room-${room.id}-dec-nights`}
-                            onClick={() => handleNightsChange(room.id, nights - 1)}
-                            className="size-6 bg-white border border-brand-200 flex items-center justify-center rounded text-brand-600 hover:bg-brand-100 transition-colors"
-                          >
-                            -
-                          </button>
-                          <input
-                            id={`room-${room.id}-input-nights`}
-                            type="number"
-                            min="1"
-                            max="30"
-                            value={nights}
-                            onChange={(e) => handleNightsChange(room.id, parseInt(e.target.value) || 1)}
-                            className="w-10 text-center font-mono font-medium text-sm border-0 focus:outline-none bg-transparent"
-                          />
-                          <button
-                            id={`room-${room.id}-inc-nights`}
-                            onClick={() => handleNightsChange(room.id, nights + 1)}
-                            className="size-6 bg-white border border-brand-200 flex items-center justify-center rounded text-brand-600 hover:bg-brand-100 transition-colors"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Explicit Board / Meal Plan selection */}
-                      <div className="flex items-center justify-between pt-1 border-t border-brand-200/50">
-                        <label className="text-[11px] font-medium text-brand-800 flex items-center gap-1">
-                          <Coffee className="size-3 text-brand-500" />
-                          Board Plan:
-                        </label>
-                        <select
-                          id={`room-${room.id}-board-select`}
-                          value={getSelectedBoardPlan(room.id)}
-                          onChange={(e) => handleBoardPlanChange(room.id, e.target.value as BoardPlan)}
-                          className="bg-white border border-brand-200 text-[11px] rounded px-1.5 py-0.5 text-brand-800 font-medium focus:outline-indigo-500 max-w-[124px]"
-                        >
-                          <option value="Room Only">Room Only</option>
-                          <option value="Bed & Breakfast (BB)">BB Room (+{currencySymbol}18)</option>
-                          <option value="Half Board (HB)">Half Board (+{currencySymbol}40)</option>
-                          <option value="Full Board (FB)">Full Board (+{currencySymbol}75)</option>
-                        </select>
-                      </div>
-
-                      {/* Explicit Discount Option selection */}
-                      <div className="flex items-center justify-between pt-1 border-t border-brand-200/50">
-                        <label className="text-[11px] font-medium text-brand-800 flex items-center gap-1">
-                          <Percent className="size-3 text-brand-500" />
-                          Discount Option:
-                        </label>
-                        <select
-                          id={`room-${room.id}-discount-select`}
-                          value={discountChoice}
-                          onChange={(e) => handleDiscountChange(room.id, e.target.value)}
-                          className="bg-white border border-brand-200 text-[11px] rounded px-1.5 py-0.5 text-brand-800 font-medium focus:outline-indigo-500 max-w-[124px]"
-                        >
-                          <option value="auto">Auto calculated</option>
-                          <option value="0">No Discount (0%)</option>
-                          <option value="5">Promo (5%)</option>
-                          <option value="10">Manager (10%)</option>
-                          <option value="15">VIP Loyalty (15%)</option>
-                          <option value="20">Grand Suite (20%)</option>
-                          <option value="25">Campaign (25%)</option>
-                        </select>
-                      </div>
-
-                      {/* Display live indicators */}
-                      <div className="flex flex-col gap-0.5 pt-1 text-[10px] border-t border-brand-200/30">
-                        <div className="flex items-center justify-between min-h-[1.25rem]">
-                          <span className="text-brand-500">Board rate:</span>
-                          <span className="text-brand-700 font-medium font-mono">
-                            {BOARD_PLAN_PRICES[getSelectedBoardPlan(room.id)] > 0 
-                              ? `+${currencySymbol}${BOARD_PLAN_PRICES[getSelectedBoardPlan(room.id)]}/night` 
-                              : 'Included'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between min-h-[1.25rem]">
-                          <span className="text-brand-500">Preview discount:</span>
-                          {pct > 0 ? (
-                            <span className="flex items-center gap-0.5 text-emerald-600 font-semibold uppercase">
-                              <Percent className="size-2.5" />
-                              {text}
-                            </span>
-                          ) : (
-                            <span className="text-brand-400 font-medium">
-                              No discount applied
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                  {room.status === 'booked' && guestName && (
+                    <div className="bg-amber-50/50 border border-amber-100 p-2.5 rounded-lg text-center text-xs text-amber-800 font-medium flex items-center justify-center gap-1.5">
+                      <User className="size-3.5" />
+                      Guest: {guestName}
                     </div>
                   )}
 
-                  {/* If room occupied or already added display statuses */}
-                  {room.status === 'booked' && (
+                  {room.status === 'booked' && !guestName && (
                     <div className="bg-amber-50/50 border border-amber-100 p-2.5 rounded-lg text-center text-xs text-amber-800 font-medium">
-                      Currently occupied by checked-in guest
-                    </div>
-                  )}
-
-                  {isAlreadyAdded && (
-                    <div className="bg-hotel-50/50 border border-hotel-150 p-2.5 rounded-lg text-center text-xs text-hotel-800 font-medium flex items-center justify-center gap-1.5">
-                      <span className="size-1.5 rounded-full bg-hotel-600 animate-ping"></span>
-                      Added to active billing desk
+                      Currently occupied
                     </div>
                   )}
                 </div>
@@ -432,43 +282,11 @@ export default function RoomSection({
                     id={`toggle-room-${room.id}`}
                     onClick={() => onToggleRoomStatus(room.id)}
                     title="Toggle occupied/available status"
-                    className="p-1 px-2.5 text-[11px] font-medium border border-brand-200 rounded-lg text-brand-600 hover:bg-brand-50 hover:text-brand-800 transition-all flex items-center gap-1 cursor-pointer"
+                    className="flex-1 p-1 px-2.5 text-[11px] font-medium border border-brand-200 rounded-lg text-brand-600 hover:bg-brand-50 hover:text-brand-800 transition-all flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <RefreshCw className="size-3" />
                     {room.status === 'booked' ? 'Release Room' : 'Mark Booked'}
                   </button>
-
-                  {room.status === 'available' && !isAlreadyAdded && (
-                    <button
-                      id={`add-room-to-bill-${room.id}`}
-                      onClick={() => {
-                        const choice = getSelectedDiscount(room.id);
-                        const override = choice === 'auto' ? undefined : parseInt(choice, 10);
-                        const bChoice = getSelectedBoardPlan(room.id);
-                        const bPrice = BOARD_PLAN_PRICES[bChoice];
-                        onAddRoomToBill(room, nights, override, bChoice, bPrice);
-                      }}
-                      className="flex-1 bg-hotel-700 hover:bg-hotel-800 text-white font-medium text-xs px-3 py-2 rounded-lg flex items-center justify-center gap-1 shadow-sm transition-all cursor-pointer"
-                    >
-                      <Plus className="size-3.5" />
-                      Add Room to Bill
-                    </button>
-                  )}
-
-                  {room.status === 'available' && isAlreadyAdded && (
-                    <button
-                      disabled
-                      className="flex-1 bg-brand-100 text-brand-400 font-medium text-xs px-3 py-2 rounded-lg flex items-center justify-center gap-1"
-                    >
-                      Added to Desk
-                    </button>
-                  )}
-
-                  {room.status === 'booked' && (
-                    <div className="flex-1 text-[11px] text-right text-brand-400 italic font-medium pr-1">
-                      Check-out required
-                    </div>
-                  )}
                 </div>
               </div>
             );

@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Room, FoodItem, RoomBookingItem, FoodOrderItem, SalesReceipt, RoomType, BoardPlan, TerminalSettings, CURRENCY_SYMBOLS } from './types';
-import { INITIAL_ROOMS, INITIAL_FOOD_ITEMS } from './data';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Room, FoodItem, AmenityItem, RoomBookingItem, FoodOrderItem, AmenityChargeItem, SalesReceipt, Bill, Customer, CustomerSnapshot, TerminalSettings, CURRENCY_SYMBOLS } from './types';
+import { INITIAL_ROOMS, INITIAL_FOOD_ITEMS, INITIAL_AMENITY_ITEMS } from './data';
+import { calculateBillTotals, generateBillNumber, generateInvoiceNumber, normalizeBill, getHeldRoomIds } from './utils/billing';
 import RoomSection from './components/RoomSection';
 import FoodSection from './components/FoodSection';
+import AmenitySection from './components/AmenitySection';
+import GuestSection from './components/GuestSection';
 import BillingSummary from './components/BillingSummary';
 import DailySalesSummary from './components/DailySalesSummary';
 import InvoiceModal from './components/InvoiceModal';
@@ -26,7 +29,8 @@ import {
   Database,
   Printer,
   Sparkles,
-  DollarSign
+  DollarSign,
+  Users
 } from 'lucide-react';
 
 export default function App() {
@@ -40,9 +44,35 @@ export default function App() {
     const saved = localStorage.getItem('hotel_pos_food');
     return saved ? JSON.parse(saved) : INITIAL_FOOD_ITEMS;
   });
-  const [currentRoomBookings, setCurrentRoomBookings] = useState<RoomBookingItem[]>([]);
-  const [currentFoodOrders, setCurrentFoodOrders] = useState<FoodOrderItem[]>([]);
-  
+  const [bills, setBills] = useState<Bill[]>(() => {
+    const saved = localStorage.getItem('hotel_pos_bills');
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed.map((b: Bill) => normalizeBill(b)) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    const saved = localStorage.getItem('hotel_pos_customers');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [amenityItems, setAmenityItems] = useState<AmenityItem[]>(() => {
+    const saved = localStorage.getItem('hotel_pos_amenities');
+    return saved ? JSON.parse(saved) : INITIAL_AMENITY_ITEMS;
+  });
+
+  const [activeBillId, setActiveBillId] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem('hotel_pos_active_bill_id');
+    } catch {
+      return null;
+    }
+  });
+
   const [receipts, setReceipts] = useState<SalesReceipt[]>(() => {
     const saved = localStorage.getItem('hotel_pos_receipts');
     return saved ? JSON.parse(saved) : [];
@@ -72,8 +102,15 @@ export default function App() {
   // Settings Modal open trigger
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Active view on the Left Pane: 'rooms' | 'food' | 'logs'
-  const [activeLeftTab, setActiveLeftTab] = useState<'rooms' | 'food' | 'logs'>('rooms');
+  // Active view on the Left Pane
+  const [activeLeftTab, setActiveLeftTab] = useState<'guests' | 'rooms' | 'food' | 'amenities' | 'logs'>('guests');
+
+  const activeBill = useMemo(
+    () => bills.find(b => b.id === activeBillId && b.status === 'held') ?? null,
+    [bills, activeBillId]
+  );
+
+  const heldBillCount = useMemo(() => bills.filter(b => b.status === 'held').length, [bills]);
   
   // Real-time clock state simulating front desk system time
   const [systemTime, setSystemTime] = useState(new Date());
@@ -118,6 +155,45 @@ export default function App() {
   }, [receipts]);
 
   useEffect(() => {
+    localStorage.setItem('hotel_pos_bills', JSON.stringify(bills));
+  }, [bills]);
+
+  useEffect(() => {
+    try {
+      if (activeBillId) {
+        sessionStorage.setItem('hotel_pos_active_bill_id', activeBillId);
+      } else {
+        sessionStorage.removeItem('hotel_pos_active_bill_id');
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+  }, [activeBillId]);
+
+  // Keep room occupancy in sync with held bills
+  useEffect(() => {
+    const heldRoomIds = getHeldRoomIds(bills);
+    setRooms(prev => prev.map(room => {
+      const shouldBeBooked = heldRoomIds.has(room.id);
+      if (shouldBeBooked && room.status !== 'booked') {
+        return { ...room, status: 'booked' as const };
+      }
+      if (!shouldBeBooked && room.status === 'booked') {
+        return { ...room, status: 'available' as const };
+      }
+      return room;
+    }));
+  }, [bills]);
+
+  useEffect(() => {
+    localStorage.setItem('hotel_pos_customers', JSON.stringify(customers));
+  }, [customers]);
+
+  useEffect(() => {
+    localStorage.setItem('hotel_pos_amenities', JSON.stringify(amenityItems));
+  }, [amenityItems]);
+
+  useEffect(() => {
     localStorage.setItem('hotel_pos_terminal_settings', JSON.stringify(terminalSettings));
   }, [terminalSettings]);
 
@@ -130,34 +206,41 @@ export default function App() {
   }, []);
 
   // 3. Actions / Operations
-  
+
+  const updateActiveBill = (updater: (bill: Bill) => Bill) => {
+    if (!activeBillId) return;
+    setBills(prev => prev.map(b => {
+      if (b.id !== activeBillId || b.status !== 'held') return b;
+      return updater(b);
+    }));
+  };
+
+  const getActiveHeldBill = (): Bill | null => {
+    if (!activeBillId) return null;
+    return bills.find(b => b.id === activeBillId && b.status === 'held') ?? null;
+  };
+
+  const updateAllBillsRoomBooking = (roomId: string, updater: (item: RoomBookingItem) => RoomBookingItem) => {
+    setBills(prev => prev.map(bill => ({
+      ...bill,
+      roomBookings: bill.roomBookings.map(rb => rb.id === roomId ? updater(rb) : rb)
+    })));
+  };
+
   // Room Management CRUD handlers
   const handleEditRoom = (roomId: string, updatedFields: Partial<Room>) => {
     setRooms(prev => prev.map(room => room.id === roomId ? { ...room, ...updatedFields } : room));
-    
-    // Also update any active bookings for this room so visual billing summaries match
-    setCurrentRoomBookings(prev => prev.map(booking => {
-      if (booking.id === roomId) {
-        const pricePerNight = updatedFields.pricePerNight !== undefined ? updatedFields.pricePerNight : booking.pricePerNight;
-        const name = updatedFields.name !== undefined ? updatedFields.name : booking.name;
-        const roomNumber = updatedFields.roomNumber !== undefined ? updatedFields.roomNumber : booking.roomNumber;
-        const boardPriceRate = booking.boardPlanPricePerNight || 0;
-        const totalRatePerNight = pricePerNight + boardPriceRate;
-        const basePrice = totalRatePerNight * booking.nights;
-        const discountAmt = basePrice * (booking.discountPercentage / 100);
-        const finalPrice = basePrice - discountAmt;
 
-        return {
-          ...booking,
-          name,
-          roomNumber,
-          pricePerNight,
-          discountAmount: discountAmt,
-          totalPrice: finalPrice
-        };
-      }
-      return booking;
-    }));
+    updateAllBillsRoomBooking(roomId, booking => {
+      const pricePerNight = updatedFields.pricePerNight !== undefined ? updatedFields.pricePerNight : booking.pricePerNight;
+      const name = updatedFields.name !== undefined ? updatedFields.name : booking.name;
+      const roomNumber = updatedFields.roomNumber !== undefined ? updatedFields.roomNumber : booking.roomNumber;
+      const boardPriceRate = booking.boardPlanPricePerNight || 0;
+      const totalRatePerNight = pricePerNight + boardPriceRate;
+      const basePrice = totalRatePerNight * booking.nights;
+      const discountAmt = basePrice * (booking.discountPercentage / 100);
+      return { ...booking, name, roomNumber, pricePerNight, discountAmount: discountAmt, totalPrice: basePrice - discountAmt };
+    });
 
     playBeep(620, 0.08);
     setCheckoutNotice("Room details updated successfully.");
@@ -166,9 +249,6 @@ export default function App() {
 
   const handleDeleteRoom = (roomId: string) => {
     setRooms(prev => prev.filter(room => room.id !== roomId));
-    // Also remove from active rooms bookings list if present
-    setCurrentRoomBookings(prev => prev.filter(booking => booking.id !== roomId));
-    
     playBeep(350, 0.1);
     setCheckoutNotice("Room removed from active registry.");
     setTimeout(() => setCheckoutNotice(null), 3000);
@@ -184,21 +264,16 @@ export default function App() {
   // Food Management CRUD handlers
   const handleEditFood = (foodId: string, updatedFields: Partial<FoodItem>) => {
     setFoodItems(prev => prev.map(item => item.id === foodId ? { ...item, ...updatedFields } : item));
-    
-    // Also update current active food orders if present
-    setCurrentFoodOrders(prev => prev.map(order => {
-      if (order.id === foodId) {
+
+    setBills(prev => prev.map(bill => ({
+      ...bill,
+      foodOrders: bill.foodOrders.map(order => {
+        if (order.id !== foodId) return order;
         const nextPrice = updatedFields.price !== undefined ? updatedFields.price : order.price;
         const name = updatedFields.name !== undefined ? updatedFields.name : order.name;
-        return {
-          ...order,
-          name,
-          price: nextPrice,
-          totalPrice: order.quantity * nextPrice
-        };
-      }
-      return order;
-    }));
+        return { ...order, name, price: nextPrice, totalPrice: order.quantity * nextPrice };
+      })
+    })));
 
     playBeep(620, 0.08);
     setCheckoutNotice("Food item details updated successfully.");
@@ -207,9 +282,10 @@ export default function App() {
 
   const handleDeleteFood = (foodId: string) => {
     setFoodItems(prev => prev.filter(item => item.id !== foodId));
-    // Also remove from active orders
-    setCurrentFoodOrders(prev => prev.filter(order => order.id !== foodId));
-    
+    setBills(prev => prev.map(bill => ({
+      ...bill,
+      foodOrders: bill.foodOrders.filter(order => order.id !== foodId)
+    })));
     playBeep(350, 0.1);
     setCheckoutNotice("Menu item removed successfully.");
     setTimeout(() => setCheckoutNotice(null), 3000);
@@ -222,115 +298,231 @@ export default function App() {
     setTimeout(() => setCheckoutNotice(null), 3000);
   };
 
-  // Add room to the current bill
-  const handleAddRoomToBill = (
-    room: Room,
-    nights: number,
-    discountOverride?: number,
-    boardPlan?: BoardPlan,
-    boardPlanPricePerNight?: number
+  // Amenity CRUD handlers
+  const handleEditAmenity = (amenityId: string, updatedFields: Partial<AmenityItem>) => {
+    setAmenityItems(prev => prev.map(item => item.id === amenityId ? { ...item, ...updatedFields } : item));
+    setBills(prev => prev.map(bill => ({
+      ...bill,
+      amenityCharges: bill.amenityCharges.map(charge => {
+        if (charge.id !== amenityId) return charge;
+        const nextPrice = updatedFields.price !== undefined ? updatedFields.price : charge.price;
+        const name = updatedFields.name !== undefined ? updatedFields.name : charge.name;
+        return { ...charge, name, price: nextPrice, totalPrice: charge.quantity * nextPrice };
+      })
+    })));
+    playBeep(620, 0.08);
+  };
+
+  const handleDeleteAmenity = (amenityId: string) => {
+    setAmenityItems(prev => prev.filter(item => item.id !== amenityId));
+    setBills(prev => prev.map(bill => ({
+      ...bill,
+      amenityCharges: bill.amenityCharges.filter(c => c.id !== amenityId)
+    })));
+    playBeep(350, 0.1);
+  };
+
+  const handleAddAmenity = (newItem: AmenityItem) => {
+    setAmenityItems(prev => [...prev, newItem]);
+    playBeep(720, 0.1);
+  };
+
+  // Bill lifecycle handlers
+  const handleCreateBill = (
+    customerSnapshot: CustomerSnapshot,
+    roomBookings: RoomBookingItem[],
+    existingCustomerId?: string
   ) => {
-    if (room.status === 'booked') return;
-
-    // Check if food / room already inserted
-    if (currentRoomBookings.some(item => item.id === room.id)) return;
-
-    const actualBoardPlan = boardPlan || 'Room Only';
-    const boardPriceRate = boardPlanPricePerNight || 0;
-    const totalRatePerNight = room.pricePerNight + boardPriceRate;
-
-    // Discount calculations: > 5 nights => 15%, > 3 nights => 10%
-    let discountPct = 0;
-    if (discountOverride !== undefined) {
-      discountPct = discountOverride;
+    let customerId = existingCustomerId;
+    if (!customerId) {
+      const newCustomer: Customer = {
+        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),
+        ...customerSnapshot,
+        createdAt: new Date().toISOString()
+      };
+      customerId = newCustomer.id;
+      setCustomers(prev => [...prev, newCustomer]);
     } else {
-      if (nights > 5) discountPct = 15;
-      else if (nights > 3) discountPct = 10;
+      setCustomers(prev => prev.map(c =>
+        c.id === customerId ? { ...c, ...customerSnapshot } : c
+      ));
     }
 
-    const basePrice = totalRatePerNight * nights;
-    const discountAmt = basePrice * (discountPct / 100);
-    const finalPrice = basePrice - discountAmt;
-
-    const newItem: RoomBookingItem = {
-      id: room.id,
-      name: room.name,
-      roomNumber: room.roomNumber,
-      pricePerNight: room.pricePerNight,
-      nights,
-      discountPercentage: discountPct,
-      discountAmount: discountAmt,
-      boardPlan: actualBoardPlan,
-      boardPlanPricePerNight: boardPriceRate,
-      totalPrice: finalPrice
+    const billId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9);
+    const newBill: Bill = {
+      id: billId,
+      billNumber: generateBillNumber(bills.length),
+      customerId: customerId!,
+      customer: customerSnapshot,
+      status: 'held',
+      createdAt: new Date().toISOString(),
+      roomBookings,
+      foodOrders: [],
+      amenityCharges: []
     };
 
-    setCurrentRoomBookings(prev => [...prev, newItem]);
+    const roomIds = roomBookings.map(r => r.id);
+    setBills(prev => [newBill, ...prev]);
+    setActiveBillId(billId);
+    setRooms(prev => prev.map(r => roomIds.includes(r.id) ? { ...r, status: 'booked' as const } : r));
+
     playBeep(520, 0.08);
-    
-    // Auto shift view to highlight the added room in the right billing drawer
-    setCheckoutNotice(`Added ${room.name} (Room ${room.roomNumber}) to checking ledger.`);
+    setCheckoutNotice(`Bill ${newBill.billNumber} created for ${customerSnapshot.name}.`);
+    setTimeout(() => setCheckoutNotice(null), 4000);
+
+    return billId;
+  };
+
+  const handleSelectBill = (billId: string) => {
+    setActiveBillId(billId);
+    playBeep(650, 0.05);
+  };
+
+  const handleAddFoodToBill = (item: FoodItem) => {
+    if (!activeBillId) return;
+    updateActiveBill(bill => ({
+      ...bill,
+      foodOrders: (() => {
+        const existing = bill.foodOrders.find(oi => oi.id === item.id);
+        if (existing) {
+          return bill.foodOrders.map(oi =>
+            oi.id === item.id
+              ? { ...oi, quantity: oi.quantity + 1, totalPrice: (oi.quantity + 1) * oi.price }
+              : oi
+          );
+        }
+        return [...bill.foodOrders, { id: item.id, name: item.name, price: item.price, quantity: 1, totalPrice: item.price }];
+      })()
+    }));
+    playBeep(580, 0.08);
+    setCheckoutNotice(`Added ${item.name} to folio.`);
     setTimeout(() => setCheckoutNotice(null), 3000);
   };
 
-  // Remove room booking from active bill check list
-  const handleRemoveRoom = (roomId: string) => {
-    setCurrentRoomBookings(prev => prev.filter(item => item.id !== roomId));
-    playBeep(400, 0.06);
-  };
-
-  // Add kitchen item to active bill
-  const handleAddFoodToBill = (item: FoodItem) => {
-    setCurrentFoodOrders(prev => {
-      const existing = prev.find(oi => oi.id === item.id);
-      if (existing) {
-        return prev.map(oi => 
-          oi.id === item.id 
-            ? { ...oi, quantity: oi.quantity + 1, totalPrice: (oi.quantity + 1) * oi.price } 
-            : oi
-        );
-      } else {
-        return [...prev, {
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: 1,
-          totalPrice: item.price
-        }];
-      }
-    });
-
-    playBeep(580, 0.08);
-    setCheckoutNotice(`Added ${item.name} to kitchen orders list.`);
-    setTimeout(() => setCheckoutNotice(null), 3550);
-  };
-
-  // Increment or Decrement quantity of food directly
-  const handleUpdateFoodQuantity = (itemId: string, delta: number) => {
-    setCurrentFoodOrders(prev => {
-      return prev.map(oi => {
-        if (oi.id === itemId) {
-          const nextQty = oi.quantity + delta;
-          if (nextQty <= 0) {
-            playBeep(400, 0.06);
-            return null;
-          }
-          playBeep(550 + (delta * 50), 0.06);
-          return {
-            ...oi,
-            quantity: nextQty,
-            totalPrice: nextQty * oi.price
-          };
+  const handleAddAmenityToBill = (item: AmenityItem) => {
+    if (!activeBillId) return;
+    updateActiveBill(bill => ({
+      ...bill,
+      amenityCharges: (() => {
+        const existing = bill.amenityCharges.find(c => c.id === item.id);
+        if (existing) {
+          return bill.amenityCharges.map(c =>
+            c.id === item.id
+              ? { ...c, quantity: c.quantity + 1, totalPrice: (c.quantity + 1) * c.price }
+              : c
+          );
         }
-        return oi;
-      }).filter((item): item is FoodOrderItem => item !== null);
-    });
+        return [...bill.amenityCharges, { id: item.id, name: item.name, price: item.price, quantity: 1, totalPrice: item.price }];
+      })()
+    }));
+    playBeep(580, 0.08);
+    setCheckoutNotice(`Added ${item.name} to folio.`);
+    setTimeout(() => setCheckoutNotice(null), 3000);
   };
 
-  // Quick remove food item altogether from cart
+  const handleUpdateFoodQuantity = (itemId: string, delta: number) => {
+    if (!activeBillId) return;
+    updateActiveBill(bill => ({
+      ...bill,
+      foodOrders: bill.foodOrders.map(oi => {
+        if (oi.id !== itemId) return oi;
+        const nextQty = oi.quantity + delta;
+        if (nextQty <= 0) return null;
+        return { ...oi, quantity: nextQty, totalPrice: nextQty * oi.price };
+      }).filter((item): item is FoodOrderItem => item !== null)
+    }));
+    playBeep(550, 0.06);
+  };
+
   const handleRemoveFood = (foodId: string) => {
-    setCurrentFoodOrders(prev => prev.filter(item => item.id !== foodId));
+    if (!activeBillId) return;
+    updateActiveBill(bill => ({ ...bill, foodOrders: bill.foodOrders.filter(item => item.id !== foodId) }));
     playBeep(400, 0.06);
+  };
+
+  const handleUpdateAmenityQuantity = (itemId: string, delta: number) => {
+    if (!activeBillId) return;
+    updateActiveBill(bill => ({
+      ...bill,
+      amenityCharges: bill.amenityCharges.map(c => {
+        if (c.id !== itemId) return c;
+        const nextQty = c.quantity + delta;
+        if (nextQty <= 0) return null;
+        return { ...c, quantity: nextQty, totalPrice: nextQty * c.price };
+      }).filter((item): item is AmenityChargeItem => item !== null)
+    }));
+    playBeep(550, 0.06);
+  };
+
+  const handleRemoveAmenity = (amenityId: string) => {
+    if (!activeBillId) return;
+    updateActiveBill(bill => ({ ...bill, amenityCharges: bill.amenityCharges.filter(item => item.id !== amenityId) }));
+    playBeep(400, 0.06);
+  };
+
+  const handleCloseBill = (cashReceived: number) => {
+    const bill = getActiveHeldBill();
+    if (!bill) return;
+
+    const totals = calculateBillTotals(
+      bill.roomBookings,
+      bill.foodOrders,
+      bill.amenityCharges,
+      terminalSettings.serviceChargeRate,
+      terminalSettings.taxRate
+    );
+
+    const change = cashReceived - totals.total;
+    const invoiceNum = generateInvoiceNumber(receipts.length);
+    const receiptId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9);
+
+    const receipt: SalesReceipt = {
+      id: receiptId,
+      invoiceNumber: invoiceNum,
+      timestamp: new Date().toISOString(),
+      billId: bill.id,
+      billNumber: bill.billNumber,
+      customer: bill.customer,
+      roomCharges: totals.roomChargesOriginal,
+      foodCharges: totals.foodCharges,
+      amenityCharges: totals.amenityCharges,
+      subtotal: totals.subtotal,
+      roomDiscount: totals.roomDiscountTotal,
+      tax: totals.tax,
+      foodServiceCharge: totals.foodServiceCharge,
+      total: totals.total,
+      cashReceived,
+      cashChange: change,
+      rooms: bill.roomBookings.map(r => ({
+        name: r.name,
+        roomNumber: r.roomNumber,
+        nights: r.nights,
+        pricePerNight: r.pricePerNight,
+        discountAmount: r.discountAmount,
+        boardPlan: r.boardPlan,
+        boardPlanPricePerNight: r.boardPlanPricePerNight
+      })),
+      foods: bill.foodOrders.map(f => ({ name: f.name, quantity: f.quantity, price: f.price })),
+      amenities: bill.amenityCharges.map(a => ({ name: a.name, quantity: a.quantity, price: a.price }))
+    };
+
+    const roomIds = bill.roomBookings.map(r => r.id);
+    setRooms(prev => prev.map(r => roomIds.includes(r.id) ? { ...r, status: 'available' as const } : r));
+
+    setBills(prev => prev.map(b =>
+      b.id === bill.id
+        ? { ...b, status: 'closed' as const, closedAt: new Date().toISOString(), receiptId }
+        : b
+    ));
+
+    setReceipts(prev => [receipt, ...prev]);
+    setSelectedReceiptForInvoice(receipt);
+    setActiveBillId(null);
+
+    playBeep(880, 0.1);
+    setTimeout(() => playBeep(1100, 0.12), 100);
+    setCheckoutNotice(`Bill closed! Receipt ${invoiceNum} generated.`);
+    setTimeout(() => setCheckoutNotice(null), 4000);
   };
 
   // Toggle Room occupancy status inside database registry (occupied/available)
@@ -348,86 +540,7 @@ export default function App() {
     }));
   };
 
-  // Pay Cash Checkout transaction completion
-  const handleCheckout = (cashReceived: number) => {
-    // 1. Calculate original billing properties
-    const roomChargesOriginal = currentRoomBookings.reduce(
-      (sum, item) => sum + ((item.pricePerNight + (item.boardPlanPricePerNight || 0)) * item.nights),
-      0
-    );
-    const roomDiscountTotal = currentRoomBookings.reduce((sum, item) => sum + item.discountAmount, 0);
-    const roomChargesFinal = roomChargesOriginal - roomDiscountTotal;
-
-    const foodCharges = currentFoodOrders.reduce((sum, item) => sum + item.totalPrice, 0);
-    const foodServiceCharge = foodCharges * (terminalSettings.serviceChargeRate / 100);
-    const taxSum = (roomChargesFinal + foodCharges) * (terminalSettings.taxRate / 100);
-    
-    const subtotal = roomChargesOriginal + foodCharges;
-    const finalTotal = roomChargesFinal + foodCharges + foodServiceCharge + taxSum;
-
-    const change = cashReceived - finalTotal;
-
-    // Create unique sequential invoice ID e.g. INV-100234
-    const invoiceNum = `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(receipts.length + 1001).padStart(4, '0')}`;
-
-    // 2. Draft Receipt Object
-    const receipt: SalesReceipt = {
-      id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),
-      invoiceNumber: invoiceNum,
-      timestamp: new Date().toISOString(),
-      roomCharges: roomChargesOriginal,
-      foodCharges: foodCharges,
-      subtotal: subtotal,
-      roomDiscount: roomDiscountTotal,
-      tax: taxSum,
-      foodServiceCharge: foodServiceCharge,
-      total: finalTotal,
-      cashReceived: cashReceived,
-      cashChange: change,
-      rooms: currentRoomBookings.map(r => ({
-        name: r.name,
-        roomNumber: r.roomNumber,
-        nights: r.nights,
-        pricePerNight: r.pricePerNight,
-        discountAmount: r.discountAmount,
-        boardPlan: r.boardPlan,
-        boardPlanPricePerNight: r.boardPlanPricePerNight
-      })),
-      foods: currentFoodOrders.map(f => ({
-        name: f.name,
-        quantity: f.quantity,
-        price: f.price
-      }))
-    };
-
-    // 3. Mark billed rooms as 'booked' status to simulate checked-in room occupancy!
-    const roomsToBookList = currentRoomBookings.map(b => b.id);
-    if (roomsToBookList.length > 0) {
-      setRooms(prev => prev.map(r => {
-        if (roomsToBookList.includes(r.id)) {
-          return { ...r, status: 'booked' };
-        }
-        return r;
-      }));
-    }
-
-    // 4. Save to history logs
-    setReceipts(prev => [receipt, ...prev]);
-
-    // 5. Open invoice printer screen immediately
-    setSelectedReceiptForInvoice(receipt);
-
-    // 6. Reset current cart data
-    setCurrentRoomBookings([]);
-    setCurrentFoodOrders([]);
-
-    // Pleasant high register success double beep tone
-    playBeep(880, 0.1);
-    setTimeout(() => playBeep(1100, 0.12), 100);
-
-    setCheckoutNotice(`Transaction finalized! Receipt ${invoiceNum} generated.`);
-    setTimeout(() => setCheckoutNotice(null), 4000);
-  };
+  // Pay Cash Checkout transaction completion — removed; use handleCloseBill
 
   // Clear shift receipts history logs
   const handleClearShiftReceipts = () => {
@@ -509,44 +622,75 @@ export default function App() {
         <div className="lg:col-span-8 flex flex-col space-y-6">
           
           {/* Main Module Tabs Nav Selectors */}
-          <div className="flex bg-slate-200/50 p-1 rounded-xl gap-1 self-start select-none">
+          <div className="flex flex-wrap bg-slate-200/50 p-1 rounded-xl gap-1 self-start select-none">
+            <button
+              id="tab-btn-guests"
+              onClick={() => { setActiveLeftTab('guests'); playBeep(650, 0.05); }}
+              className={`relative px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                activeLeftTab === 'guests'
+                  ? 'bg-white text-indigo-700 shadow-sm font-bold'
+                  : 'text-slate-600 hover:bg-slate-250/30'
+              }`}
+            >
+              <Users className="size-4" />
+              Guests
+              {heldBillCount > 0 && (
+                <span className="font-mono text-[9px] font-bold bg-amber-500 text-white size-4 flex items-center justify-center rounded-full leading-none">
+                  {heldBillCount}
+                </span>
+              )}
+            </button>
+
             <button
               id="tab-btn-rooms"
               onClick={() => { setActiveLeftTab('rooms'); playBeep(650, 0.05); }}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                 activeLeftTab === 'rooms'
                   ? 'bg-white text-indigo-700 shadow-sm font-bold'
                   : 'text-slate-600 hover:bg-slate-250/30'
               }`}
             >
               <Building className="size-4" />
-              Room Bookings
+              Rooms
             </button>
             
             <button
               id="tab-btn-food"
               onClick={() => { setActiveLeftTab('food'); playBeep(650, 0.05); }}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                 activeLeftTab === 'food'
                   ? 'bg-white text-indigo-700 shadow-sm font-bold'
                   : 'text-slate-600 hover:bg-slate-250/30'
               }`}
             >
               <Utensils className="size-4" />
-              Restaurant &amp; Bar
+              Restaurant
+            </button>
+
+            <button
+              id="tab-btn-amenities"
+              onClick={() => { setActiveLeftTab('amenities'); playBeep(650, 0.05); }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                activeLeftTab === 'amenities'
+                  ? 'bg-white text-indigo-700 shadow-sm font-bold'
+                  : 'text-slate-600 hover:bg-slate-250/30'
+              }`}
+            >
+              <Sparkles className="size-4" />
+              Amenities
             </button>
 
             <button
               id="tab-btn-logs"
               onClick={() => { setActiveLeftTab('logs'); playBeep(650, 0.05); }}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer relative ${
+              className={`relative px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                 activeLeftTab === 'logs'
                   ? 'bg-white text-indigo-700 shadow-sm font-bold'
                   : 'text-slate-600 hover:bg-slate-250/30'
               }`}
             >
               <FileText className="size-4" />
-              Shift Audit Ledger
+              Ledger
               {receipts.length > 0 && (
                 <span className="absolute -top-1 -right-1 font-mono text-[9px] font-bold bg-indigo-600 text-white size-4 flex items-center justify-center rounded-full leading-none">
                   {receipts.length}
@@ -557,11 +701,26 @@ export default function App() {
 
           {/* ACTIVE ASSIGNED COMPONENT CONTAINER PANE WITH FADE SEAMLESS DESIGN */}
           <div className="flex-1">
+            {activeLeftTab === 'guests' && (
+              <GuestSection
+                rooms={rooms}
+                customers={customers}
+                bills={bills}
+                receipts={receipts}
+                heldBillCount={heldBillCount}
+                onCreateBill={handleCreateBill}
+                onSelectBill={(id) => { handleSelectBill(id); }}
+                onSelectReceipt={(r) => { setSelectedReceiptForInvoice(r); playBeep(750, 0.08); }}
+                currencySymbol={currencySymbol}
+                serviceChargeRate={terminalSettings.serviceChargeRate}
+                taxRate={terminalSettings.taxRate}
+              />
+            )}
+
             {activeLeftTab === 'rooms' && (
               <RoomSection
                 rooms={rooms}
-                currentRoomBookings={currentRoomBookings}
-                onAddRoomToBill={handleAddRoomToBill}
+                bills={bills}
                 onToggleRoomStatus={handleToggleRoomStatus}
                 onEditRoom={handleEditRoom}
                 onDeleteRoom={handleDeleteRoom}
@@ -573,12 +732,29 @@ export default function App() {
             {activeLeftTab === 'food' && (
               <FoodSection
                 foodItems={foodItems}
-                currentFoodOrders={currentFoodOrders}
+                currentFoodOrders={activeBill?.foodOrders ?? []}
+                hasActiveBill={!!activeBill}
+                activeBillCustomerName={activeBill?.customer.name}
                 onAddFoodToBill={handleAddFoodToBill}
                 onUpdateFoodQuantity={handleUpdateFoodQuantity}
                 onEditFood={handleEditFood}
                 onDeleteFood={handleDeleteFood}
                 onAddFood={handleAddFood}
+                currencySymbol={currencySymbol}
+              />
+            )}
+
+            {activeLeftTab === 'amenities' && (
+              <AmenitySection
+                amenityItems={amenityItems}
+                currentAmenityCharges={activeBill?.amenityCharges ?? []}
+                hasActiveBill={!!activeBill}
+                activeBillCustomerName={activeBill?.customer.name}
+                onAddAmenityToBill={handleAddAmenityToBill}
+                onUpdateAmenityQuantity={handleUpdateAmenityQuantity}
+                onEditAmenity={handleEditAmenity}
+                onDeleteAmenity={handleDeleteAmenity}
+                onAddAmenity={handleAddAmenity}
                 currencySymbol={currencySymbol}
               />
             )}
@@ -598,12 +774,13 @@ export default function App() {
         {/* RIGHT VIEW: 4-COLS STICKY FIXED ACTIVE BILLING SUMMARY PANE */}
         <div className="lg:col-span-4 h-[calc(100vh-160px)] sticky top-[88px]">
           <BillingSummary
-            roomBookings={currentRoomBookings}
-            foodOrders={currentFoodOrders}
-            onRemoveRoom={handleRemoveRoom}
+            activeBill={activeBill}
             onRemoveFood={handleRemoveFood}
             onUpdateFoodQuantity={handleUpdateFoodQuantity}
-            onCheckout={handleCheckout}
+            onRemoveAmenity={handleRemoveAmenity}
+            onUpdateAmenityQuantity={handleUpdateAmenityQuantity}
+            onCloseBill={handleCloseBill}
+            onSwitchBill={() => setActiveLeftTab('guests')}
             currencySymbol={currencySymbol}
             currencyCode={terminalSettings.currency}
             serviceChargeRate={terminalSettings.serviceChargeRate}
@@ -805,11 +982,14 @@ export default function App() {
                       onClick={() => {
                         if (window.confirm("Perform initial shift startup initialization? This wipes lodging ledger, restaurant orders and logs for the station.")) {
                           setReceipts([]);
-                          setCurrentRoomBookings([]);
-                          setCurrentFoodOrders([]);
+                          setBills([]);
+                          setCustomers([]);
+                          setActiveBillId(null);
                           setRooms(INITIAL_ROOMS);
                           setFoodItems(INITIAL_FOOD_ITEMS);
+                          setAmenityItems(INITIAL_AMENITY_ITEMS);
                           localStorage.clear();
+                          try { sessionStorage.removeItem('hotel_pos_active_bill_id'); } catch { /* ignore */ }
                           setIsSettingsOpen(false);
                           setCheckoutNotice("POS database synchronized and restarted.");
                           setTimeout(() => setCheckoutNotice(null), 3000);

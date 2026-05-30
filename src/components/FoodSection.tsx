@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { FoodItem, FoodCategory, FoodOrderItem } from '../types';
-import { Utensils, Search, Wine, RotateCcw, Plus, Minus, Check, Pencil, Trash2, X } from 'lucide-react';
+import { Utensils, Search, RotateCcw, Plus, Minus, Check, Pencil, Trash2, X, AlertCircle } from 'lucide-react';
 
 interface FoodSectionProps {
   foodItems: FoodItem[];
   onAddFoodToBill: (item: FoodItem) => void;
   onUpdateFoodQuantity: (itemId: string, delta: number) => void;
   currentFoodOrders: FoodOrderItem[];
+  hasActiveBill: boolean;
+  activeBillCustomerName?: string;
   currencySymbol?: string;
   onEditFood: (foodId: string, updatedFields: Partial<FoodItem>) => void;
   onDeleteFood: (foodId: string) => void;
@@ -18,6 +20,8 @@ export default function FoodSection({
   onAddFoodToBill,
   onUpdateFoodQuantity,
   currentFoodOrders,
+  hasActiveBill,
+  activeBillCustomerName,
   currencySymbol = '$',
   onEditFood,
   onDeleteFood,
@@ -115,6 +119,19 @@ export default function FoodSection({
   return (
     <>
       <div className="space-y-4" id="food-section-container">
+      {!hasActiveBill && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-2 text-xs text-amber-800">
+          <AlertCircle className="size-4 shrink-0 mt-0.5" />
+          <p>Create or resume a bill from <strong>Guests</strong> to add food charges to a folio.</p>
+        </div>
+      )}
+
+      {hasActiveBill && activeBillCustomerName && (
+        <div className="bg-hotel-50 border border-hotel-200 rounded-xl p-3 text-xs text-hotel-800 font-medium">
+          Adding charges to folio: <strong>{activeBillCustomerName}</strong>
+        </div>
+      )}
+
       {/* Search and Title Top bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-hotel-100 shadow-sm">
         <div>
@@ -269,8 +286,13 @@ export default function FoodSection({
                   ) : (
                     <button
                       id={`add-food-btn-${item.id}`}
-                      onClick={() => onAddFoodToBill(item)}
-                      className="bg-brand-900 text-white font-medium text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1 shadow-sm hover:bg-hotel-700 transition-colors uppercase cursor-pointer"
+                      onClick={() => hasActiveBill && onAddFoodToBill(item)}
+                      disabled={!hasActiveBill}
+                      className={`font-medium text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1 shadow-sm transition-colors uppercase ${
+                        hasActiveBill
+                          ? 'bg-brand-900 text-white hover:bg-hotel-700 cursor-pointer'
+                          : 'bg-brand-100 text-brand-400 cursor-not-allowed'
+                      }`}
                     >
                       <Plus className="size-3" /> Insert
                     </button>

@@ -1,4 +1,4 @@
-import { Room, FoodItem } from './types';
+import { Room, FoodItem, AmenityItem } from './types';
 
 export const INITIAL_ROOMS: Room[] = [
   { id: 'r1', name: 'Standard Single Room', type: 'Single', pricePerNight: 80, status: 'available', roomNumber: '101' },
@@ -36,4 +36,19 @@ export const INITIAL_FOOD_ITEMS: FoodItem[] = [
   { id: 'f15', name: 'Craft IPA Pint', price: 6.50, category: 'drinks', available: true },
   { id: 'f16', name: 'Chardonnay (Glass)', price: 8.50, category: 'drinks', available: true },
   { id: 'f17', name: 'Mineral Sparkling Water', price: 3.00, category: 'drinks', available: true }
+];
+
+export const INITIAL_AMENITY_ITEMS: AmenityItem[] = [
+  { id: 'a1', name: 'Minibar Snack Pack', price: 12.00, category: 'minibar', available: true },
+  { id: 'a2', name: 'Premium Minibar Wine', price: 28.00, category: 'minibar', available: true },
+  { id: 'a3', name: 'Soft Drink (Minibar)', price: 4.50, category: 'minibar', available: true },
+  { id: 'a4', name: 'Laundry - Shirt', price: 8.00, category: 'laundry', available: true },
+  { id: 'a5', name: 'Laundry - Full Load', price: 25.00, category: 'laundry', available: true },
+  { id: 'a6', name: 'Dry Cleaning - Suit', price: 18.00, category: 'laundry', available: true },
+  { id: 'a7', name: 'Swedish Massage (60 min)', price: 85.00, category: 'spa', available: true },
+  { id: 'a8', name: 'Aromatherapy Session', price: 65.00, category: 'spa', available: true },
+  { id: 'a9', name: 'Late Checkout (until 2 PM)', price: 35.00, category: 'services', available: true },
+  { id: 'a10', name: 'Extra Bed / Rollaway', price: 45.00, category: 'services', available: true },
+  { id: 'a11', name: 'Airport Transfer', price: 55.00, category: 'services', available: true },
+  { id: 'a12', name: 'Room Safe Rental', price: 5.00, category: 'services', available: true },
 ];
