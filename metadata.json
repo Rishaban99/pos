@@ -1,0 +1,6 @@
+{
+  "name": "Hotel POS System",
+  "description": "A simple and modern Point of Sale system for rooms booking and table food orders with cash payment.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
