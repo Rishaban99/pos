@@ -12,6 +12,7 @@ export interface AuthStorage {
 
 export const localStorageAuthStorage: AuthStorage = {
   getUsers(): StoredUser[] {
+    if (typeof window === 'undefined') return [];
     try {
       const raw = localStorage.getItem(USERS_KEY);
       if (!raw) return [];
@@ -23,10 +24,12 @@ export const localStorageAuthStorage: AuthStorage = {
   },
 
   saveUsers(users: StoredUser[]): void {
+    if (typeof window === 'undefined') return;
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
   },
 
   getSession(): AuthSession | null {
+    if (typeof window === 'undefined') return null;
     try {
       const raw = sessionStorage.getItem(SESSION_KEY);
       if (!raw) return null;
@@ -37,6 +40,7 @@ export const localStorageAuthStorage: AuthStorage = {
   },
 
   setSession(session: AuthSession | null): void {
+    if (typeof window === 'undefined') return;
     try {
       if (session) {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));

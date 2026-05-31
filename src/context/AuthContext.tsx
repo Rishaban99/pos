@@ -1,13 +1,8 @@
+'use client';
+
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { hasPermission as checkPermission, type Permission } from '../auth/permissions';
-import {
-  bootstrapFromEnv,
-  getBootstrapConfigured,
-  getStoredSession,
-  hasAnyUsers,
-  login as authLogin,
-  logout as authLogout,
-} from '../auth/service';
+import { api } from '../lib/api';
 import type { AuthSession, UserRole } from '../auth/types';
 
 interface AuthContextValue {
@@ -16,7 +11,7 @@ interface AuthContextValue {
   bootstrapConfigured: boolean;
   hasUsers: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
   role: UserRole | null;
 }
@@ -26,18 +21,28 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [bootstrapConfigured] = useState(getBootstrapConfigured);
-  const [hasUsers, setHasUsers] = useState(hasAnyUsers);
+  const [bootstrapConfigured, setBootstrapConfigured] = useState(false);
+  const [hasUsers, setHasUsers] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
-      await bootstrapFromEnv();
-      if (cancelled) return;
-      setHasUsers(hasAnyUsers());
-      setSession(getStoredSession());
-      setIsReady(true);
+      try {
+        const data = await api.auth.getSession();
+        if (cancelled) return;
+        setBootstrapConfigured(data.bootstrapConfigured);
+        setHasUsers(data.hasUsers);
+        setSession(data.session);
+      } catch {
+        if (!cancelled) {
+          setBootstrapConfigured(false);
+          setHasUsers(false);
+          setSession(null);
+        }
+      } finally {
+        if (!cancelled) setIsReady(true);
+      }
     }
 
     init();
@@ -47,18 +52,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const result = await authLogin(username, password);
-    if (result.success === false) {
-      return { success: false, error: result.error };
+    try {
+      const data = await api.auth.login(username, password);
+      setSession(data.session);
+      setHasUsers(true);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Login failed.',
+      };
     }
-    setSession(result.session);
-    setHasUsers(true);
-    return { success: true };
   }, []);
 
-  const logout = useCallback(() => {
-    authLogout();
-    setSession(null);
+  const logout = useCallback(async () => {
+    try {
+      await api.auth.logout();
+    } finally {
+      setSession(null);
+    }
   }, []);
 
   const hasPermission = useCallback(

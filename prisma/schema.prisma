@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  super_admin
+  receptionist
+}
+
+enum RoomType {
+  Single
+  Double
+  Deluxe
+  Family_Suite @map("Family Suite")
+}
+
+enum RoomStatus {
+  available
+  booked
+}
+
+enum FoodCategory {
+  breakfast
+  lunch
+  dinner
+  drinks
+}
+
+enum AmenityCategory {
+  minibar
+  laundry
+  spa
+  services
+}
+
+enum BillStatus {
+  held
+  closed
+}
+
+enum Currency {
+  USD
+  EUR
+  GBP
+  JPY
+  INR
+  LKR
+}
+
+enum PrinterType {
+  Thermal_80mm @map("Thermal 80mm")
+  Thermal_58mm @map("Thermal 58mm")
+  Laser_A4     @map("Laser A4")
+}
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  username     String   @unique
+  passwordHash String
+  role         UserRole
+  displayName  String
+  createdAt    DateTime @default(now())
+  createdBy    String?  @db.ObjectId
+  active       Boolean  @default(true)
+}
+
+model Room {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  type          RoomType
+  pricePerNight Float
+  status        RoomStatus @default(available)
+  roomNumber    String     @unique
+}
+
+model FoodItem {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  price     Float
+  category  FoodCategory
+  available Boolean      @default(true)
+}
+
+model AmenityItem {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  price     Float
+  category  AmenityCategory
+  available Boolean         @default(true)
+}
+
+model Customer {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  phone     String
+  email     String?
+  idNumber  String?
+  createdAt DateTime @default(now())
+}
+
+type CustomerSnapshot {
+  name     String
+  phone    String
+  email    String?
+  idNumber String?
+}
+
+type RoomBookingItem {
+  id                     String
+  name                   String
+  roomNumber             String
+  pricePerNight          Float
+  nights                 Int
+  discountPercentage     Float
+  discountAmount         Float
+  boardPlan              String?
+  boardPlanPricePerNight Float?
+  totalPrice             Float
+}
+
+type FoodOrderItem {
+  id         String
+  name       String
+  price      Float
+  quantity   Int
+  totalPrice Float
+}
+
+type AmenityChargeItem {
+  id         String
+  name       String
+  price      Float
+  quantity   Int
+  totalPrice Float
+}
+
+model Bill {
+  id             String             @id @default(auto()) @map("_id") @db.ObjectId
+  billNumber     String             @unique
+  customerId     String             @db.ObjectId
+  customer       CustomerSnapshot
+  status         BillStatus         @default(held)
+  createdAt      DateTime           @default(now())
+  closedAt       DateTime?
+  roomBookings   RoomBookingItem[]
+  foodOrders     FoodOrderItem[]
+  amenityCharges AmenityChargeItem[]
+  receiptId      String?            @db.ObjectId
+
+  @@index([status])
+}
+
+type ReceiptRoomLine {
+  name                   String
+  roomNumber             String
+  nights                 Int
+  pricePerNight          Float
+  discountAmount         Float
+  boardPlan              String?
+  boardPlanPricePerNight Float?
+}
+
+type ReceiptFoodLine {
+  name     String
+  quantity Int
+  price    Float
+}
+
+type ReceiptAmenityLine {
+  name     String
+  quantity Int
+  price    Float
+}
+
+model SalesReceipt {
+  id                String              @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceNumber     String              @unique
+  timestamp         DateTime            @default(now())
+  billId            String?             @db.ObjectId
+  billNumber        String?
+  customer          CustomerSnapshot?
+  roomCharges       Float
+  foodCharges       Float
+  amenityCharges    Float?
+  subtotal          Float
+  roomDiscount      Float
+  tax               Float
+  foodServiceCharge Float?
+  total             Float
+  cashReceived      Float
+  cashChange        Float
+  rooms             ReceiptRoomLine[]
+  foods             ReceiptFoodLine[]
+  amenities         ReceiptAmenityLine[]
+}
+
+type DiscountAutoRule {
+  minNights       Int
+  discountPercent Float
+}
+
+model TerminalSettings {
+  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
+  singletonKey       String      @unique @default("default")
+  currency           Currency    @default(USD)
+  taxRate            Float       @default(5)
+  serviceChargeRate  Float       @default(10)
+  printerType        PrinterType @default(Thermal_80mm)
+  stationId          String      @default("FRONT-DESK-04")
+  operatorName       String      @default("Front Desk")
+  soundEnabled       Boolean     @default(true)
+}
+
+model DiscountSettings {
+  id            String             @id @default(auto()) @map("_id") @db.ObjectId
+  singletonKey  String             @unique @default("default")
+  autoRules     DiscountAutoRule[]
+  manualOptions Float[]
+}
+
+model Session {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  token     String   @unique
+  userId    String   @db.ObjectId
+  username  String
+  role      UserRole
+  displayName String
+  loggedInAt DateTime @default(now())
+  expiresAt DateTime
+}

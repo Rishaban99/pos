@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+'use client';
+
+import React, { useCallback, useEffect, useState } from 'react';
 import { UserCog, Plus, ShieldCheck, User, AlertCircle, UserX } from 'lucide-react';
-import { registerUser, deactivateUser, listUsers } from '../auth/service';
+import { api } from '../lib/api';
 import { getRoleLabel } from '../auth/permissions';
 import type { StoredUser, UserRole } from '../auth/types';
 import { useAuth } from '../context/AuthContext';
 
 export default function StaffManagementSection() {
   const { session } = useAuth();
-  const [users, setUsers] = useState<StoredUser[]>(() => listUsers());
+  const [users, setUsers] = useState<StoredUser[]>([]);
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +18,18 @@ export default function StaffManagementSection() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const refreshUsers = () => setUsers(listUsers());
+  const refreshUsers = useCallback(async () => {
+    try {
+      const data = await api.users.list();
+      setUsers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load users.');
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshUsers();
+  }, [refreshUsers]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,37 +37,33 @@ export default function StaffManagementSection() {
     setSuccess(null);
     setIsSubmitting(true);
 
-    const result = await registerUser(
-      { username, password, displayName, role },
-      session?.userId
-    );
-
-    if (result.success === false) {
-      setError(result.error);
+    try {
+      const user = await api.users.create({ username, password, displayName, role });
+      setSuccess(`Registered ${user.displayName} successfully.`);
+      setUsername('');
+      setDisplayName('');
+      setPassword('');
+      setRole('receptionist');
+      await refreshUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed.');
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-    setSuccess(`Registered ${result.user.displayName} successfully.`);
-    setUsername('');
-    setDisplayName('');
-    setPassword('');
-    setRole('receptionist');
-    refreshUsers();
-    setIsSubmitting(false);
   };
 
-  const handleDeactivate = (userId: string, name: string) => {
+  const handleDeactivate = async (userId: string, name: string) => {
     if (!session) return;
     if (!window.confirm(`Deactivate ${name}? They will no longer be able to sign in.`)) return;
 
-    const result = deactivateUser(userId, session.userId);
-    if (result.success === false) {
-      setError(result.error);
-      return;
+    try {
+      await api.users.deactivate(userId);
+      setSuccess(`${name} has been deactivated.`);
+      setError(null);
+      await refreshUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to deactivate user.');
     }
-    setSuccess(`${name} has been deactivated.`);
-    setError(null);
-    refreshUsers();
   };
 
   return (

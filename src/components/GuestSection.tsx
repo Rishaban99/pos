@@ -13,7 +13,11 @@ interface GuestSectionProps {
   bills: Bill[];
   receipts: SalesReceipt[];
   heldBillCount: number;
-  onCreateBill: (customer: CustomerSnapshot, roomBookings: RoomBookingItem[], existingCustomerId?: string) => string | void;
+  onCreateBill: (
+    customer: CustomerSnapshot,
+    roomBookings: RoomBookingItem[],
+    existingCustomerId?: string
+  ) => string | void | Promise<string | void>;
   onSelectBill: (billId: string) => void;
   onSelectReceipt: (receipt: SalesReceipt) => void;
   currencySymbol?: string;

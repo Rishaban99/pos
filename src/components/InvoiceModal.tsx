@@ -196,7 +196,7 @@ export default function InvoiceModal({ receipt, onClose, currencySymbol = '$' }:
               PAID - CASH ONLY TENDER
             </span>
             <p className="text-xs text-brand-500 italic mt-2">
-              "We thank you for visiting us. Please look forward to welcoming you back!"
+              We thank you for visiting us. Please look forward to welcoming you back!
             </p>
           </div>
         </div>

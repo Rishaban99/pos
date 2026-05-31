@@ -1,45 +1,49 @@
+'use client';
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { Room, FoodItem, AmenityItem, RoomBookingItem, FoodOrderItem, AmenityChargeItem, SalesReceipt, Bill, Customer, CustomerSnapshot, TerminalSettings, CURRENCY_SYMBOLS, DiscountSettings, DEFAULT_DISCOUNT_SETTINGS } from './types';
-import { INITIAL_ROOMS, INITIAL_FOOD_ITEMS, INITIAL_AMENITY_ITEMS } from './data';
-import { calculateBillTotals, generateBillNumber, generateInvoiceNumber, normalizeBill, getHeldRoomIds } from './utils/billing';
-import RoomSection from './components/RoomSection';
-import FoodSection from './components/FoodSection';
-import AmenitySection from './components/AmenitySection';
-import GuestSection from './components/GuestSection';
-import BillingSummary from './components/BillingSummary';
-import DailySalesSummary from './components/DailySalesSummary';
-import InvoiceModal from './components/InvoiceModal';
-import LoginScreen from './components/LoginScreen';
-import StaffManagementSection from './components/StaffManagementSection';
-import { useAuth } from './context/AuthContext';
-import { getRoleLabel } from './auth/permissions';
+import { Room, FoodItem, AmenityItem, RoomBookingItem, FoodOrderItem, AmenityChargeItem, SalesReceipt, Bill, Customer, CustomerSnapshot, TerminalSettings, CURRENCY_SYMBOLS, DiscountSettings, DEFAULT_DISCOUNT_SETTINGS } from '@/types';
+import { api } from '@/lib/api';
+import RoomSection from './RoomSection';
+import FoodSection from './FoodSection';
+import AmenitySection from './AmenitySection';
+import GuestSection from './GuestSection';
+import BillingSummary from './BillingSummary';
+import DailySalesSummary from './DailySalesSummary';
+import InvoiceModal from './InvoiceModal';
+import LoginScreen from './LoginScreen';
+import StaffManagementSection from './StaffManagementSection';
+import { useAuth } from '@/context/AuthContext';
+import { getRoleLabel } from '@/auth/permissions';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building, 
-  CalendarDays, 
-  Clock, 
   FileText, 
   LogOut, 
-  TrendingUp, 
   Utensils, 
-  User, 
-  LayoutDashboard,
   ShieldCheck,
-  AlertCircle,
   Settings,
   X,
   Volume2,
   VolumeX,
   Database,
-  Printer,
   Sparkles,
-  DollarSign,
   Users,
   UserCog,
   Percent
 } from 'lucide-react';
 
 type LeftTab = 'guests' | 'rooms' | 'food' | 'amenities' | 'logs' | 'staff';
+
+const DEFAULT_TERMINAL: TerminalSettings = {
+  currency: 'USD',
+  taxRate: 5,
+  serviceChargeRate: 10,
+  printerType: 'Thermal 80mm',
+  stationId: 'FRONT-DESK-04',
+  operatorName: 'Sarah Jenkins',
+  soundEnabled: true,
+  dbType: 'mongodb',
+};
 
 export default function App() {
   const { session, isReady, logout, hasPermission } = useAuth();
@@ -52,82 +56,16 @@ export default function App() {
   const canManageUsers = hasPermission('users:manage');
   const canManageDiscounts = hasPermission('discounts:manage');
 
-  // 1. Core State
-  const [rooms, setRooms] = useState<Room[]>(() => {
-    const saved = localStorage.getItem('hotel_pos_rooms');
-    return saved ? JSON.parse(saved) : INITIAL_ROOMS;
-  });
-  
-  const [foodItems, setFoodItems] = useState<FoodItem[]>(() => {
-    const saved = localStorage.getItem('hotel_pos_food');
-    return saved ? JSON.parse(saved) : INITIAL_FOOD_ITEMS;
-  });
-  const [bills, setBills] = useState<Bill[]>(() => {
-    const saved = localStorage.getItem('hotel_pos_bills');
-    if (!saved) return [];
-    try {
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed.map((b: Bill) => normalizeBill(b)) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    const saved = localStorage.getItem('hotel_pos_customers');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [amenityItems, setAmenityItems] = useState<AmenityItem[]>(() => {
-    const saved = localStorage.getItem('hotel_pos_amenities');
-    return saved ? JSON.parse(saved) : INITIAL_AMENITY_ITEMS;
-  });
-
-  const [activeBillId, setActiveBillId] = useState<string | null>(() => {
-    try {
-      return sessionStorage.getItem('hotel_pos_active_bill_id');
-    } catch {
-      return null;
-    }
-  });
-
-  const [receipts, setReceipts] = useState<SalesReceipt[]>(() => {
-    const saved = localStorage.getItem('hotel_pos_receipts');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [terminalSettings, setTerminalSettings] = useState<TerminalSettings>(() => {
-    const saved = localStorage.getItem('hotel_pos_terminal_settings');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // use fallback
-      }
-    }
-    return {
-      currency: 'USD',
-      taxRate: 5,
-      serviceChargeRate: 10,
-      printerType: 'Thermal 80mm',
-      stationId: 'FRONT-DESK-04',
-      operatorName: 'Sarah Jenkins',
-      soundEnabled: true,
-      dbType: 'localstorage'
-    };
-  });
-
-  const [discountSettings, setDiscountSettings] = useState<DiscountSettings>(() => {
-    const saved = localStorage.getItem('hotel_pos_discount_settings');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // use fallback
-      }
-    }
-    return DEFAULT_DISCOUNT_SETTINGS;
-  });
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [amenityItems, setAmenityItems] = useState<AmenityItem[]>([]);
+  const [activeBillId, setActiveBillId] = useState<string | null>(null);
+  const [receipts, setReceipts] = useState<SalesReceipt[]>([]);
+  const [terminalSettings, setTerminalSettings] = useState<TerminalSettings>(DEFAULT_TERMINAL);
+  const [discountSettings, setDiscountSettings] = useState<DiscountSettings>(DEFAULT_DISCOUNT_SETTINGS);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   // Settings Modal open trigger
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -164,7 +102,10 @@ export default function App() {
   const playBeep = (freq = 600, duration = 0.08) => {
     if (!terminalSettings.soundEnabled) return;
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextClass = window.AudioContext
+        || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
@@ -175,70 +116,70 @@ export default function App() {
       gain.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + duration);
-    } catch (e) {
+    } catch {
       // safe bypass
     }
   };
 
-  // 2. LocalStorage syncing
   useEffect(() => {
-    localStorage.setItem('hotel_pos_rooms', JSON.stringify(rooms));
-  }, [rooms]);
-
-  useEffect(() => {
-    localStorage.setItem('hotel_pos_food', JSON.stringify(foodItems));
-  }, [foodItems]);
-
-  useEffect(() => {
-    localStorage.setItem('hotel_pos_receipts', JSON.stringify(receipts));
-  }, [receipts]);
-
-  useEffect(() => {
-    localStorage.setItem('hotel_pos_bills', JSON.stringify(bills));
-  }, [bills]);
-
-  useEffect(() => {
-    try {
-      if (activeBillId) {
-        sessionStorage.setItem('hotel_pos_active_bill_id', activeBillId);
-      } else {
-        sessionStorage.removeItem('hotel_pos_active_bill_id');
-      }
-    } catch {
-      // sessionStorage unavailable
+    if (!session) {
+      setIsDataLoading(false);
+      return;
     }
-  }, [activeBillId]);
 
-  // Keep room occupancy in sync with held bills
-  useEffect(() => {
-    const heldRoomIds = getHeldRoomIds(bills);
-    setRooms(prev => prev.map(room => {
-      const shouldBeBooked = heldRoomIds.has(room.id);
-      if (shouldBeBooked && room.status !== 'booked') {
-        return { ...room, status: 'booked' as const };
+    let cancelled = false;
+
+    async function loadData() {
+      setIsDataLoading(true);
+      try {
+        const [
+          roomsData,
+          foodData,
+          amenityData,
+          billsData,
+          customersData,
+          receiptsData,
+          terminalData,
+          discountData,
+        ] = await Promise.all([
+          api.rooms.list(),
+          api.food.list(),
+          api.amenities.list(),
+          api.bills.list(),
+          api.customers.list(),
+          canViewLedger ? api.receipts.list() : Promise.resolve([]),
+          api.settings.getTerminal(),
+          api.settings.getDiscounts(),
+        ]);
+
+        if (cancelled) return;
+        setRooms(roomsData);
+        setFoodItems(foodData);
+        setAmenityItems(amenityData);
+        setBills(billsData);
+        setCustomers(customersData);
+        setReceipts(receiptsData);
+        setTerminalSettings(terminalData);
+        setDiscountSettings(discountData);
+
+        const heldBill = billsData.find(b => b.status === 'held');
+        setActiveBillId(prev => {
+          if (prev && billsData.some(b => b.id === prev && b.status === 'held')) return prev;
+          return heldBill?.id ?? null;
+        });
+      } catch (error) {
+        console.error('Failed to load POS data', error);
+        setCheckoutNotice('Failed to load data from server.');
+      } finally {
+        if (!cancelled) setIsDataLoading(false);
       }
-      if (!shouldBeBooked && room.status === 'booked') {
-        return { ...room, status: 'available' as const };
-      }
-      return room;
-    }));
-  }, [bills]);
+    }
 
-  useEffect(() => {
-    localStorage.setItem('hotel_pos_customers', JSON.stringify(customers));
-  }, [customers]);
-
-  useEffect(() => {
-    localStorage.setItem('hotel_pos_amenities', JSON.stringify(amenityItems));
-  }, [amenityItems]);
-
-  useEffect(() => {
-    localStorage.setItem('hotel_pos_terminal_settings', JSON.stringify(terminalSettings));
-  }, [terminalSettings]);
-
-  useEffect(() => {
-    localStorage.setItem('hotel_pos_discount_settings', JSON.stringify(discountSettings));
-  }, [discountSettings]);
+    loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, canViewLedger]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeLeftTab)) {
@@ -256,12 +197,26 @@ export default function App() {
 
   // 3. Actions / Operations
 
+  const persistBill = async (billId: string, bill: Bill) => {
+    const updated = await api.bills.update(billId, {
+      customer: bill.customer,
+      roomBookings: bill.roomBookings,
+      foodOrders: bill.foodOrders,
+      amenityCharges: bill.amenityCharges,
+    });
+    setBills(prev => prev.map(b => (b.id === billId ? updated : b)));
+    return updated;
+  };
+
   const updateActiveBill = (updater: (bill: Bill) => Bill) => {
     if (!activeBillId) return;
-    setBills(prev => prev.map(b => {
-      if (b.id !== activeBillId || b.status !== 'held') return b;
-      return updater(b);
-    }));
+    const current = bills.find(b => b.id === activeBillId && b.status === 'held');
+    if (!current) return;
+    const next = updater(current);
+    setBills(prev => prev.map(b => (b.id === activeBillId ? next : b)));
+    void persistBill(activeBillId, next).catch(() => {
+      setCheckoutNotice('Failed to save bill changes.');
+    });
   };
 
   const getActiveHeldBill = (): Bill | null => {
@@ -269,167 +224,288 @@ export default function App() {
     return bills.find(b => b.id === activeBillId && b.status === 'held') ?? null;
   };
 
-  const updateAllBillsRoomBooking = (roomId: string, updater: (item: RoomBookingItem) => RoomBookingItem) => {
-    setBills(prev => prev.map(bill => ({
-      ...bill,
-      roomBookings: bill.roomBookings.map(rb => rb.id === roomId ? updater(rb) : rb)
-    })));
-  };
-
-  // Room Management CRUD handlers
-  const handleEditRoom = (roomId: string, updatedFields: Partial<Room>) => {
-    if (!hasPermission('rooms:manage')) return;
-    setRooms(prev => prev.map(room => room.id === roomId ? { ...room, ...updatedFields } : room));
-
-    updateAllBillsRoomBooking(roomId, booking => {
-      const pricePerNight = updatedFields.pricePerNight !== undefined ? updatedFields.pricePerNight : booking.pricePerNight;
-      const name = updatedFields.name !== undefined ? updatedFields.name : booking.name;
-      const roomNumber = updatedFields.roomNumber !== undefined ? updatedFields.roomNumber : booking.roomNumber;
-      const boardPriceRate = booking.boardPlanPricePerNight || 0;
-      const totalRatePerNight = pricePerNight + boardPriceRate;
-      const basePrice = totalRatePerNight * booking.nights;
-      const discountAmt = basePrice * (booking.discountPercentage / 100);
-      return { ...booking, name, roomNumber, pricePerNight, discountAmount: discountAmt, totalPrice: basePrice - discountAmt };
-    });
-
-    playBeep(620, 0.08);
-    setCheckoutNotice("Room details updated successfully.");
-    setTimeout(() => setCheckoutNotice(null), 3000);
-  };
-
-  const handleDeleteRoom = (roomId: string) => {
-    if (!hasPermission('rooms:manage')) return;
-    setRooms(prev => prev.filter(room => room.id !== roomId));
-    playBeep(350, 0.1);
-    setCheckoutNotice("Room removed from active registry.");
-    setTimeout(() => setCheckoutNotice(null), 3000);
-  };
-
-  const handleAddRoom = (newRoom: Room) => {
-    if (!hasPermission('rooms:manage')) return;
-    setRooms(prev => [...prev, newRoom]);
-    playBeep(720, 0.1);
-    setCheckoutNotice(`Created new Room ${newRoom.roomNumber} successfully.`);
-    setTimeout(() => setCheckoutNotice(null), 3000);
-  };
-
-  // Food Management CRUD handlers
-  const handleEditFood = (foodId: string, updatedFields: Partial<FoodItem>) => {
-    if (!hasPermission('food:manage')) return;
-    setFoodItems(prev => prev.map(item => item.id === foodId ? { ...item, ...updatedFields } : item));
-
-    setBills(prev => prev.map(bill => ({
-      ...bill,
-      foodOrders: bill.foodOrders.map(order => {
-        if (order.id !== foodId) return order;
-        const nextPrice = updatedFields.price !== undefined ? updatedFields.price : order.price;
-        const name = updatedFields.name !== undefined ? updatedFields.name : order.name;
-        return { ...order, name, price: nextPrice, totalPrice: order.quantity * nextPrice };
+  const updateAllBillsRoomBooking = async (
+    roomId: string,
+    updater: (item: RoomBookingItem) => RoomBookingItem
+  ) => {
+    const affected = bills.filter(b =>
+      b.roomBookings.some(rb => rb.id === roomId)
+    );
+    await Promise.all(
+      affected.map(async bill => {
+        const next = {
+          ...bill,
+          roomBookings: bill.roomBookings.map(rb =>
+            rb.id === roomId ? updater(rb) : rb
+          ),
+        };
+        const updated = await api.bills.update(bill.id, {
+          roomBookings: next.roomBookings,
+        });
+        setBills(prev => prev.map(b => (b.id === bill.id ? updated : b)));
       })
-    })));
-
-    playBeep(620, 0.08);
-    setCheckoutNotice("Food item details updated successfully.");
-    setTimeout(() => setCheckoutNotice(null), 3000);
+    );
   };
 
-  const handleDeleteFood = (foodId: string) => {
-    if (!hasPermission('food:manage')) return;
-    setFoodItems(prev => prev.filter(item => item.id !== foodId));
-    setBills(prev => prev.map(bill => ({
-      ...bill,
-      foodOrders: bill.foodOrders.filter(order => order.id !== foodId)
-    })));
-    playBeep(350, 0.1);
-    setCheckoutNotice("Menu item removed successfully.");
-    setTimeout(() => setCheckoutNotice(null), 3000);
+  const handleEditRoom = async (roomId: string, updatedFields: Partial<Room>) => {
+    if (!hasPermission('rooms:manage')) return;
+    try {
+      const updated = await api.rooms.update(roomId, updatedFields);
+      setRooms(prev => prev.map(room => (room.id === roomId ? updated : room)));
+
+      await updateAllBillsRoomBooking(roomId, booking => {
+        const pricePerNight =
+          updatedFields.pricePerNight !== undefined
+            ? updatedFields.pricePerNight
+            : booking.pricePerNight;
+        const name = updatedFields.name !== undefined ? updatedFields.name : booking.name;
+        const roomNumber =
+          updatedFields.roomNumber !== undefined
+            ? updatedFields.roomNumber
+            : booking.roomNumber;
+        const boardPriceRate = booking.boardPlanPricePerNight || 0;
+        const totalRatePerNight = pricePerNight + boardPriceRate;
+        const basePrice = totalRatePerNight * booking.nights;
+        const discountAmt = basePrice * (booking.discountPercentage / 100);
+        return {
+          ...booking,
+          name,
+          roomNumber,
+          pricePerNight,
+          discountAmount: discountAmt,
+          totalPrice: basePrice - discountAmt,
+        };
+      });
+
+      playBeep(620, 0.08);
+      setCheckoutNotice('Room details updated successfully.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to update room.');
+    }
   };
 
-  const handleAddFood = (newItem: FoodItem) => {
-    if (!hasPermission('food:manage')) return;
-    setFoodItems(prev => [...prev, newItem]);
-    playBeep(720, 0.1);
-    setCheckoutNotice(`Menu item "${newItem.name}" added successfully.`);
-    setTimeout(() => setCheckoutNotice(null), 3000);
+  const handleDeleteRoom = async (roomId: string) => {
+    if (!hasPermission('rooms:manage')) return;
+    try {
+      await api.rooms.delete(roomId);
+      setRooms(prev => prev.filter(room => room.id !== roomId));
+      playBeep(350, 0.1);
+      setCheckoutNotice('Room removed from active registry.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to delete room.');
+    }
   };
 
-  // Amenity CRUD handlers
-  const handleEditAmenity = (amenityId: string, updatedFields: Partial<AmenityItem>) => {
-    if (!hasPermission('amenities:manage')) return;
-    setAmenityItems(prev => prev.map(item => item.id === amenityId ? { ...item, ...updatedFields } : item));
-    setBills(prev => prev.map(bill => ({
-      ...bill,
-      amenityCharges: bill.amenityCharges.map(charge => {
-        if (charge.id !== amenityId) return charge;
-        const nextPrice = updatedFields.price !== undefined ? updatedFields.price : charge.price;
-        const name = updatedFields.name !== undefined ? updatedFields.name : charge.name;
-        return { ...charge, name, price: nextPrice, totalPrice: charge.quantity * nextPrice };
+  const handleAddRoom = async (newRoom: Room) => {
+    if (!hasPermission('rooms:manage')) return;
+    try {
+      const { name, type, pricePerNight, status, roomNumber } = newRoom;
+      const created = await api.rooms.create({ name, type, pricePerNight, status, roomNumber });
+      setRooms(prev => [...prev, created]);
+      playBeep(720, 0.1);
+      setCheckoutNotice(`Created new Room ${created.roomNumber} successfully.`);
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to create room.');
+    }
+  };
+
+  const syncBillsAfterCatalogChange = async (
+    updater: (bill: Bill) => Bill,
+    patchKey: 'foodOrders' | 'amenityCharges'
+  ) => {
+    const affected = bills.filter(b =>
+      patchKey === 'foodOrders'
+        ? b.foodOrders.length > 0
+        : b.amenityCharges.length > 0
+    );
+    await Promise.all(
+      affected.map(async bill => {
+        const next = updater(bill);
+        const updated = await api.bills.update(bill.id, {
+          [patchKey]: next[patchKey],
+        });
+        setBills(prev => prev.map(b => (b.id === bill.id ? updated : b)));
       })
-    })));
-    playBeep(620, 0.08);
+    );
   };
 
-  const handleDeleteAmenity = (amenityId: string) => {
+  const handleEditFood = async (foodId: string, updatedFields: Partial<FoodItem>) => {
+    if (!hasPermission('food:manage')) return;
+    try {
+      const updated = await api.food.update(foodId, updatedFields);
+      setFoodItems(prev => prev.map(item => (item.id === foodId ? updated : item)));
+
+      await syncBillsAfterCatalogChange(
+        bill => ({
+          ...bill,
+          foodOrders: bill.foodOrders.map(order => {
+            if (order.id !== foodId) return order;
+            const nextPrice =
+              updatedFields.price !== undefined ? updatedFields.price : order.price;
+            const name = updatedFields.name !== undefined ? updatedFields.name : order.name;
+            return {
+              ...order,
+              name,
+              price: nextPrice,
+              totalPrice: order.quantity * nextPrice,
+            };
+          }),
+        }),
+        'foodOrders'
+      );
+
+      playBeep(620, 0.08);
+      setCheckoutNotice('Food item details updated successfully.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to update food item.');
+    }
+  };
+
+  const handleDeleteFood = async (foodId: string) => {
+    if (!hasPermission('food:manage')) return;
+    try {
+      await api.food.delete(foodId);
+      setFoodItems(prev => prev.filter(item => item.id !== foodId));
+      await syncBillsAfterCatalogChange(
+        bill => ({
+          ...bill,
+          foodOrders: bill.foodOrders.filter(order => order.id !== foodId),
+        }),
+        'foodOrders'
+      );
+      playBeep(350, 0.1);
+      setCheckoutNotice('Menu item removed successfully.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to delete food item.');
+    }
+  };
+
+  const handleAddFood = async (newItem: FoodItem) => {
+    if (!hasPermission('food:manage')) return;
+    try {
+      const { name, price, category, available } = newItem;
+      const created = await api.food.create({ name, price, category, available });
+      setFoodItems(prev => [...prev, created]);
+      playBeep(720, 0.1);
+      setCheckoutNotice(`Menu item "${created.name}" added successfully.`);
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to add food item.');
+    }
+  };
+
+  const handleEditAmenity = async (amenityId: string, updatedFields: Partial<AmenityItem>) => {
     if (!hasPermission('amenities:manage')) return;
-    setAmenityItems(prev => prev.filter(item => item.id !== amenityId));
-    setBills(prev => prev.map(bill => ({
-      ...bill,
-      amenityCharges: bill.amenityCharges.filter(c => c.id !== amenityId)
-    })));
-    playBeep(350, 0.1);
+    try {
+      const updated = await api.amenities.update(amenityId, updatedFields);
+      setAmenityItems(prev => prev.map(item => (item.id === amenityId ? updated : item)));
+      await syncBillsAfterCatalogChange(
+        bill => ({
+          ...bill,
+          amenityCharges: bill.amenityCharges.map(charge => {
+            if (charge.id !== amenityId) return charge;
+            const nextPrice =
+              updatedFields.price !== undefined ? updatedFields.price : charge.price;
+            const name = updatedFields.name !== undefined ? updatedFields.name : charge.name;
+            return {
+              ...charge,
+              name,
+              price: nextPrice,
+              totalPrice: charge.quantity * nextPrice,
+            };
+          }),
+        }),
+        'amenityCharges'
+      );
+      playBeep(620, 0.08);
+    } catch {
+      setCheckoutNotice('Failed to update amenity.');
+    }
   };
 
-  const handleAddAmenity = (newItem: AmenityItem) => {
+  const handleDeleteAmenity = async (amenityId: string) => {
     if (!hasPermission('amenities:manage')) return;
-    setAmenityItems(prev => [...prev, newItem]);
-    playBeep(720, 0.1);
+    try {
+      await api.amenities.delete(amenityId);
+      setAmenityItems(prev => prev.filter(item => item.id !== amenityId));
+      await syncBillsAfterCatalogChange(
+        bill => ({
+          ...bill,
+          amenityCharges: bill.amenityCharges.filter(c => c.id !== amenityId),
+        }),
+        'amenityCharges'
+      );
+      playBeep(350, 0.1);
+    } catch {
+      setCheckoutNotice('Failed to delete amenity.');
+    }
   };
 
-  // Bill lifecycle handlers
-  const handleCreateBill = (
+  const handleAddAmenity = async (newItem: AmenityItem) => {
+    if (!hasPermission('amenities:manage')) return;
+    try {
+      const { name, price, category, available } = newItem;
+      const created = await api.amenities.create({ name, price, category, available });
+      setAmenityItems(prev => [...prev, created]);
+      playBeep(720, 0.1);
+    } catch {
+      setCheckoutNotice('Failed to add amenity.');
+    }
+  };
+
+  const handleCreateBill = async (
     customerSnapshot: CustomerSnapshot,
     roomBookings: RoomBookingItem[],
     existingCustomerId?: string
   ) => {
     if (!hasPermission('bills:create')) return;
-    let customerId = existingCustomerId;
-    if (!customerId) {
-      const newCustomer: Customer = {
-        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),
-        ...customerSnapshot,
-        createdAt: new Date().toISOString()
-      };
-      customerId = newCustomer.id;
-      setCustomers(prev => [...prev, newCustomer]);
-    } else {
-      setCustomers(prev => prev.map(c =>
-        c.id === customerId ? { ...c, ...customerSnapshot } : c
-      ));
+    try {
+      const newBill = await api.bills.create({
+        customer: customerSnapshot,
+        roomBookings,
+        existingCustomerId,
+      });
+
+      setBills(prev => [newBill, ...prev]);
+      setActiveBillId(newBill.id);
+
+      const roomIds = roomBookings.map(r => r.id);
+      setRooms(prev =>
+        prev.map(r =>
+          roomIds.includes(r.id) ? { ...r, status: 'booked' as const } : r
+        )
+      );
+
+      if (!existingCustomerId) {
+        setCustomers(prev => [
+          {
+            id: newBill.customerId,
+            ...customerSnapshot,
+            createdAt: newBill.createdAt,
+          },
+          ...prev,
+        ]);
+      } else {
+        setCustomers(prev =>
+          prev.map(c =>
+            c.id === existingCustomerId ? { ...c, ...customerSnapshot } : c
+          )
+        );
+      }
+
+      playBeep(520, 0.08);
+      setCheckoutNotice(`Bill ${newBill.billNumber} created for ${customerSnapshot.name}.`);
+      setTimeout(() => setCheckoutNotice(null), 4000);
+      return newBill.id;
+    } catch {
+      setCheckoutNotice('Failed to create bill.');
+      return undefined;
     }
-
-    const billId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9);
-    const newBill: Bill = {
-      id: billId,
-      billNumber: generateBillNumber(bills.length),
-      customerId: customerId!,
-      customer: customerSnapshot,
-      status: 'held',
-      createdAt: new Date().toISOString(),
-      roomBookings,
-      foodOrders: [],
-      amenityCharges: []
-    };
-
-    const roomIds = roomBookings.map(r => r.id);
-    setBills(prev => [newBill, ...prev]);
-    setActiveBillId(billId);
-    setRooms(prev => prev.map(r => roomIds.includes(r.id) ? { ...r, status: 'booked' as const } : r));
-
-    playBeep(520, 0.08);
-    setCheckoutNotice(`Bill ${newBill.billNumber} created for ${customerSnapshot.name}.`);
-    setTimeout(() => setCheckoutNotice(null), 4000);
-
-    return billId;
   };
 
   const handleSelectBill = (billId: string) => {
@@ -525,108 +601,90 @@ export default function App() {
     playBeep(400, 0.06);
   };
 
-  const handleCloseBill = (cashReceived: number) => {
+  const handleCloseBill = async (cashReceived: number) => {
     if (!hasPermission('bills:complete')) return;
     const bill = getActiveHeldBill();
     if (!bill) return;
 
-    const totals = calculateBillTotals(
-      bill.roomBookings,
-      bill.foodOrders,
-      bill.amenityCharges,
-      terminalSettings.serviceChargeRate,
-      terminalSettings.taxRate
-    );
+    try {
+      const { bill: closedBill, receipt } = await api.bills.close(bill.id, cashReceived);
 
-    const change = cashReceived - totals.total;
-    const invoiceNum = generateInvoiceNumber(receipts.length);
-    const receiptId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9);
+      const roomIds = bill.roomBookings.map(r => r.id);
+      setRooms(prev =>
+        prev.map(r =>
+          roomIds.includes(r.id) ? { ...r, status: 'available' as const } : r
+        )
+      );
 
-    const receipt: SalesReceipt = {
-      id: receiptId,
-      invoiceNumber: invoiceNum,
-      timestamp: new Date().toISOString(),
-      billId: bill.id,
-      billNumber: bill.billNumber,
-      customer: bill.customer,
-      roomCharges: totals.roomChargesOriginal,
-      foodCharges: totals.foodCharges,
-      amenityCharges: totals.amenityCharges,
-      subtotal: totals.subtotal,
-      roomDiscount: totals.roomDiscountTotal,
-      tax: totals.tax,
-      foodServiceCharge: totals.foodServiceCharge,
-      total: totals.total,
-      cashReceived,
-      cashChange: change,
-      rooms: bill.roomBookings.map(r => ({
-        name: r.name,
-        roomNumber: r.roomNumber,
-        nights: r.nights,
-        pricePerNight: r.pricePerNight,
-        discountAmount: r.discountAmount,
-        boardPlan: r.boardPlan,
-        boardPlanPricePerNight: r.boardPlanPricePerNight
-      })),
-      foods: bill.foodOrders.map(f => ({ name: f.name, quantity: f.quantity, price: f.price })),
-      amenities: bill.amenityCharges.map(a => ({ name: a.name, quantity: a.quantity, price: a.price }))
-    };
+      setBills(prev => prev.map(b => (b.id === closedBill.id ? closedBill : b)));
+      setReceipts(prev => [receipt, ...prev]);
+      setSelectedReceiptForInvoice(receipt);
+      setActiveBillId(null);
 
-    const roomIds = bill.roomBookings.map(r => r.id);
-    setRooms(prev => prev.map(r => roomIds.includes(r.id) ? { ...r, status: 'available' as const } : r));
-
-    setBills(prev => prev.map(b =>
-      b.id === bill.id
-        ? { ...b, status: 'closed' as const, closedAt: new Date().toISOString(), receiptId }
-        : b
-    ));
-
-    setReceipts(prev => [receipt, ...prev]);
-    setSelectedReceiptForInvoice(receipt);
-    setActiveBillId(null);
-
-    playBeep(880, 0.1);
-    setTimeout(() => playBeep(1100, 0.12), 100);
-    setCheckoutNotice(`Bill closed! Receipt ${invoiceNum} generated.`);
-    setTimeout(() => setCheckoutNotice(null), 4000);
+      playBeep(880, 0.1);
+      setTimeout(() => playBeep(1100, 0.12), 100);
+      setCheckoutNotice(`Bill closed! Receipt ${receipt.invoiceNumber} generated.`);
+      setTimeout(() => setCheckoutNotice(null), 4000);
+    } catch {
+      setCheckoutNotice('Failed to close bill.');
+    }
   };
 
-  // Toggle Room occupancy status inside database registry (occupied/available)
-  const handleToggleRoomStatus = (roomId: string) => {
+  const handleToggleRoomStatus = async (roomId: string) => {
     if (!hasPermission('rooms:manage')) return;
-    setRooms(prev => prev.map(room => {
-      if (room.id === roomId) {
-        const nextStatus = room.status === 'booked' ? 'available' : 'booked';
-        playBeep(nextStatus === 'booked' ? 440 : 660, 0.1);
-        return {
-          ...room,
-          status: nextStatus
-        };
-      }
-      return room;
-    }));
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+    const nextStatus = room.status === 'booked' ? 'available' : 'booked';
+    try {
+      const updated = await api.rooms.update(roomId, { status: nextStatus });
+      setRooms(prev => prev.map(r => (r.id === roomId ? updated : r)));
+      playBeep(nextStatus === 'booked' ? 440 : 660, 0.1);
+    } catch {
+      setCheckoutNotice('Failed to update room status.');
+    }
   };
 
-  // Pay Cash Checkout transaction completion — removed; use handleCloseBill
-
-  // Clear shift receipts history logs
-  const handleClearShiftReceipts = () => {
+  const handleClearShiftReceipts = async () => {
     if (!hasPermission('ledger:clear')) return;
-    if (window.confirm("Perform final drawer clearance? This will erase current shift audit trails permanently.")) {
+    if (
+      !window.confirm(
+        'Perform final drawer clearance? This will erase current shift audit trails permanently.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.receipts.clear();
       setReceipts([]);
-      localStorage.removeItem('hotel_pos_receipts');
-      
-      // Optionally also release all hotel rooms back to available
-      if (window.confirm("Release all occupied hotel rooms back to 'Available' status?")) {
-        setRooms(INITIAL_ROOMS);
-        localStorage.removeItem('hotel_pos_rooms');
-      }
+      setCheckoutNotice('Shift receipts cleared.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to clear receipts.');
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      const [terminal, discounts] = await Promise.all([
+        api.settings.updateTerminal(terminalSettings),
+        canManageDiscounts
+          ? api.settings.updateDiscounts(discountSettings)
+          : Promise.resolve(discountSettings),
+      ]);
+      setTerminalSettings(terminal);
+      setDiscountSettings(discounts);
+      setIsSettingsOpen(false);
+      setCheckoutNotice('Settings saved.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to save settings.');
     }
   };
 
   const currencySymbol = CURRENCY_SYMBOLS[terminalSettings.currency] || '$';
 
-  if (!isReady) {
+  if (!isReady || (session && isDataLoading)) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-sm text-slate-500 font-medium">Loading terminal...</div>
@@ -883,7 +941,6 @@ export default function App() {
                 onSelectReceipt={(r) => { setSelectedReceiptForInvoice(r); playBeep(750, 0.08); }}
                 onClearReceipts={handleClearShiftReceipts}
                 currencySymbol={currencySymbol}
-                taxRate={terminalSettings.taxRate}
                 canClearLogs={hasPermission('ledger:clear')}
               />
             )}
@@ -987,7 +1044,7 @@ export default function App() {
                         key={cur}
                         id={`currency-select-${cur}`}
                         type="button"
-                        onClick={() => { setTerminalSettings(prev => ({ ...prev, currency: cur as any })); playBeep(650, 0.05); }}
+                        onClick={() => { setTerminalSettings(prev => ({ ...prev, currency: cur as TerminalSettings['currency'] })); playBeep(650, 0.05); }}
                         className={`py-2 rounded-xl text-xs font-black font-mono border transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
                           terminalSettings.currency === cur
                             ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm ring-2 ring-indigo-100'
@@ -1042,7 +1099,7 @@ export default function App() {
                     <select
                       id="printer-type-select"
                       value={terminalSettings.printerType}
-                      onChange={(e) => setTerminalSettings(prev => ({ ...prev, printerType: e.target.value as any }))}
+                      onChange={(e) => setTerminalSettings(prev => ({ ...prev, printerType: e.target.value as TerminalSettings['printerType'] }))}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white text-xs font-semibold rounded-lg px-3 py-2 text-slate-800 outline-hidden transition-all"
                     >
                       <option value="Thermal 80mm">Thermal Ticket (80mm Width)</option>
@@ -1062,17 +1119,23 @@ export default function App() {
                           // Play a test tone if next value is true
                           if (nextVal) {
                             try {
-                              const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                              const osc = audioCtx.createOscillator();
-                              const gain = audioCtx.createGain();
-                              osc.type = 'sine';
-                              osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-                              gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-                              osc.connect(gain);
-                              gain.connect(audioCtx.destination);
-                              osc.start();
-                              osc.stop(audioCtx.currentTime + 0.1);
-                            } catch (err) {}
+                              const AudioContextClass = window.AudioContext
+                                || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+                              if (AudioContextClass) {
+                                const audioCtx = new AudioContextClass();
+                                const osc = audioCtx.createOscillator();
+                                const gain = audioCtx.createGain();
+                                osc.type = 'sine';
+                                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                                osc.connect(gain);
+                                gain.connect(audioCtx.destination);
+                                osc.start();
+                                osc.stop(audioCtx.currentTime + 0.1);
+                              }
+                            } catch {
+                              // safe bypass
+                            }
                           }
                           return { ...prev, soundEnabled: nextVal };
                         });
@@ -1160,42 +1223,14 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Database Initialization Reset */}
                 <div className="pt-2 border-t border-slate-100">
-                  <div className="p-3 bg-rose-50 border border-rose-100 rounded-lg flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-bold text-rose-950 flex items-center gap-1">
-                        <Database className="size-3.5" /> Station Initialization
-                      </span>
-                      <p className="text-[10px] text-rose-500 leading-tight">Clear all sales history, bookings, and restore rooms back to default registry.</p>
-                    </div>
-                    <button
-                      id="reset-database-btn"
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm("Perform initial shift startup initialization? This wipes lodging ledger, restaurant orders and logs for the station.")) {
-                          const preservedUsers = localStorage.getItem('hotel_pos_users');
-                          const preservedDiscounts = localStorage.getItem('hotel_pos_discount_settings');
-                          setReceipts([]);
-                          setBills([]);
-                          setCustomers([]);
-                          setActiveBillId(null);
-                          setRooms(INITIAL_ROOMS);
-                          setFoodItems(INITIAL_FOOD_ITEMS);
-                          setAmenityItems(INITIAL_AMENITY_ITEMS);
-                          localStorage.clear();
-                          if (preservedUsers) localStorage.setItem('hotel_pos_users', preservedUsers);
-                          if (preservedDiscounts) localStorage.setItem('hotel_pos_discount_settings', preservedDiscounts);
-                          try { sessionStorage.removeItem('hotel_pos_active_bill_id'); } catch { /* ignore */ }
-                          setIsSettingsOpen(false);
-                          setCheckoutNotice("POS database synchronized and restarted.");
-                          setTimeout(() => setCheckoutNotice(null), 3000);
-                        }
-                      }}
-                      className="shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-bold uppercase text-[9.5px] px-3 py-1.5 rounded border border-rose-700 cursor-pointer transition-colors shadow-3xs"
-                    >
-                      Reset POS
-                    </button>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                      <Database className="size-3.5" /> MongoDB Atlas
+                    </span>
+                    <p className="text-[10px] text-slate-500 leading-tight mt-1">
+                      Data is persisted in MongoDB. Use `npm run db:seed` to reinitialize catalog data.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1203,7 +1238,7 @@ export default function App() {
               <div className="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-end">
                 <button
                   id="save-settings-btn"
-                  onClick={() => setIsSettingsOpen(false)}
+                  onClick={saveSettings}
                   className="bg-slate-900 border border-slate-900 text-white hover:bg-slate-800 font-bold uppercase tracking-wider text-[10.5px] px-5 py-2 rounded-xl transition-all shadow-md cursor-pointer"
                 >
                   Save settings

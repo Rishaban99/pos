@@ -58,13 +58,19 @@ export default function LoginScreen() {
                 <div>
                   <h2 className="text-sm font-bold text-amber-900">Initial setup required</h2>
                   <p className="text-xs text-amber-800 mt-2 leading-relaxed">
-                    No staff accounts exist yet. Add these variables to your <code className="bg-amber-100 px-1 rounded">.env</code> file and restart the dev server:
+                    No staff accounts exist yet. Add these to your <code className="bg-amber-100 px-1 rounded">.env</code> file, then run{' '}
+                    <code className="bg-amber-100 px-1 rounded">npm run db:push</code> and{' '}
+                    <code className="bg-amber-100 px-1 rounded">npm run db:seed</code>:
                   </p>
                   <pre className="mt-3 text-[10px] bg-slate-900 text-slate-100 rounded-lg p-3 overflow-x-auto font-mono">
-{`VITE_INITIAL_SUPER_ADMIN_USERNAME=admin
-VITE_INITIAL_SUPER_ADMIN_PASSWORD=change-me
-VITE_INITIAL_SUPER_ADMIN_NAME=Super Admin`}
+{`DATABASE_URL="mongodb+srv://USER:PASS@YOUR-CLUSTER.mongodb.net/hotel_pos"
+NEXT_PUBLIC_INITIAL_SUPER_ADMIN_USERNAME=admin
+INITIAL_SUPER_ADMIN_PASSWORD=change-me
+NEXT_PUBLIC_INITIAL_SUPER_ADMIN_NAME=Super Admin`}
                   </pre>
+                  <p className="text-[10px] text-amber-700 mt-2">
+                    Replace <code className="bg-amber-100 px-1 rounded">YOUR-CLUSTER</code> with your Atlas cluster hostname (from Connect → Drivers in MongoDB Atlas).
+                  </p>
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bill } from '../types';
 import { calculateBillTotals } from '../utils/billing';
-import { Receipt, Trash2, Tag, Percent, Banknote, Coins, AlertCircle, ShoppingBag, BedDouble, Sparkles, User, Phone, ArrowLeftRight } from 'lucide-react';
+import { Receipt, Tag, Percent, Banknote, Coins, AlertCircle, ShoppingBag, BedDouble, Sparkles, User, Phone, ArrowLeftRight } from 'lucide-react';
 
 interface BillingSummaryProps {
   activeBill: Bill | null;

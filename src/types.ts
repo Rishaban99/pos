@@ -28,7 +28,7 @@ export interface TerminalSettings {
   stationId: string;
   operatorName: string;
   soundEnabled: boolean;
-  dbType: 'ram' | 'localstorage';
+  dbType: 'mongodb';
 }
 
 export const CURRENCY_SYMBOLS: Record<string, string> = {

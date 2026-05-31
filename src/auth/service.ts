@@ -25,8 +25,10 @@ function createSession(user: StoredUser): AuthSession {
 }
 
 export function getBootstrapConfigured(): boolean {
-  const username = import.meta.env.VITE_INITIAL_SUPER_ADMIN_USERNAME;
-  const password = import.meta.env.VITE_INITIAL_SUPER_ADMIN_PASSWORD;
+  const username = process.env.NEXT_PUBLIC_INITIAL_SUPER_ADMIN_USERNAME;
+  const password =
+    process.env.INITIAL_SUPER_ADMIN_PASSWORD ??
+    process.env.NEXT_PUBLIC_INITIAL_SUPER_ADMIN_PASSWORD;
   return Boolean(username?.trim() && password?.trim());
 }
 
@@ -38,10 +40,13 @@ export async function bootstrapFromEnv(): Promise<boolean> {
   const users = storage.getUsers();
   if (users.length > 0) return false;
 
-  const username = import.meta.env.VITE_INITIAL_SUPER_ADMIN_USERNAME?.trim();
-  const password = import.meta.env.VITE_INITIAL_SUPER_ADMIN_PASSWORD?.trim();
+  const username = process.env.NEXT_PUBLIC_INITIAL_SUPER_ADMIN_USERNAME?.trim();
+  const password = (
+    process.env.INITIAL_SUPER_ADMIN_PASSWORD ??
+    process.env.NEXT_PUBLIC_INITIAL_SUPER_ADMIN_PASSWORD
+  )?.trim();
   const displayName =
-    import.meta.env.VITE_INITIAL_SUPER_ADMIN_NAME?.trim() || 'Super Admin';
+    process.env.NEXT_PUBLIC_INITIAL_SUPER_ADMIN_NAME?.trim() || 'Super Admin';
 
   if (!username || !password) return false;
 

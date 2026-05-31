@@ -1,20 +1,52 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Hotel POS System
 
-# Run and deploy your AI Studio app
+A Next.js point-of-sale terminal for hotel front desk operations: room bookings, food and amenity charges, billing, and shift ledger.
 
-This contains everything you need to run your app locally.
+## Stack
 
-View your app in AI Studio: https://ai.studio/apps/2199540b-6441-48e1-a0b5-f96526925089
+- **Next.js 15** (App Router)
+- **Prisma 6** + **MongoDB Atlas**
+- **React 19** + **Tailwind CSS 4**
 
-## Run Locally
+## Run locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js 20+, MongoDB Atlas cluster
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+
+   ```bash
+   npm install
+   ```
+
+2. Copy environment variables:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Set `DATABASE_URL` and admin bootstrap credentials in `.env`.
+
+3. Push schema and seed the database:
+
+   ```bash
+   npm run db:push
+   npm run db:seed
+   ```
+
+4. Start the dev server:
+
+   ```bash
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000) and sign in with the bootstrap admin account.
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run start` | Run production server |
+| `npm run db:push` | Sync Prisma schema to MongoDB |
+| `npm run db:seed` | Seed rooms, menu, settings, and admin user |

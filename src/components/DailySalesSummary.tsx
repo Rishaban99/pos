@@ -7,7 +7,6 @@ interface DailySalesSummaryProps {
   onSelectReceipt: (receipt: SalesReceipt) => void;
   onClearReceipts: () => void;
   currencySymbol?: string;
-  taxRate?: number;
   canClearLogs?: boolean;
 }
 
@@ -16,7 +15,6 @@ export default function DailySalesSummary({
   onSelectReceipt,
   onClearReceipts,
   currencySymbol = '$',
-  taxRate = 5,
   canClearLogs = true
 }: DailySalesSummaryProps) {
   // Aggregate sales figures
@@ -134,7 +132,7 @@ export default function DailySalesSummary({
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-100">
-                {receipts.map((r, index) => (
+                {receipts.map(r => (
                   <tr 
                     key={r.id} 
                     id={`ledger-tr-${r.id}`}

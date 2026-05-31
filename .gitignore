@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 build/
+.next/
 server.js
 
 # Environment & secrets
@@ -28,9 +29,7 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
-
-# Vite
-vite.config.ts.timestamp-*
+next-env.d.ts
 
 # OS files
 .DS_Store
@@ -45,3 +44,4 @@ Thumbs.db
 # Optional local tooling
 .cache/
 .eslintcache
+.cursor

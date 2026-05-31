@@ -6,7 +6,11 @@ import { Bed, CalendarDays, Percent, Coffee, Plus, Trash2, User, Phone, Mail, Cr
 interface CreateBillFormProps {
   rooms: Room[];
   customers: Customer[];
-  onCreateBill: (customer: CustomerSnapshot, roomBookings: RoomBookingItem[], existingCustomerId?: string) => void;
+  onCreateBill: (
+    customer: CustomerSnapshot,
+    roomBookings: RoomBookingItem[],
+    existingCustomerId?: string
+  ) => void | Promise<void>;
   currencySymbol?: string;
   serviceChargeRate?: number;
   taxRate?: number;
