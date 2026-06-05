@@ -1,26 +1,42 @@
-import React from 'react';
-import { SalesReceipt } from '../types';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { SalesReceipt, TerminalSettings } from '../types';
+import { printThermalReceipt } from '../utils/thermalReceipt';
 import { Printer, X, ShieldCheck } from 'lucide-react';
 
 interface InvoiceModalProps {
   receipt: SalesReceipt | null;
   onClose: () => void;
   currencySymbol?: string;
+  printerType?: TerminalSettings['printerType'];
+  stationId?: string;
 }
 
-export default function InvoiceModal({ receipt, onClose, currencySymbol = '$' }: InvoiceModalProps) {
-  if (!receipt) return null;
+export default function InvoiceModal({
+  receipt,
+  onClose,
+  currencySymbol = '$',
+  printerType = 'Thermal 80mm',
+  stationId
+}: InvoiceModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!receipt || !mounted) return null;
 
   const handlePrint = () => {
-    window.print();
+    printThermalReceipt(receipt, currencySymbol, { printerType, stationId });
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-950/60 backdrop-blur-xs transition-opacity animate-fade-in" id="invoice-modal-container">
       {/* Modal Card */}
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-brand-100 flex flex-col max-h-[90vh] animate-scale-up">
         {/* Success header */}
-        <div className="bg-emerald-600 text-white p-4 flex items-center justify-between">
+        <div className="no-print bg-emerald-600 text-white p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-5 shrink-0" />
             <h3 className="font-bold text-sm uppercase tracking-wider">CASH PAYMENT SUCCESSFUL</h3>
@@ -36,7 +52,7 @@ export default function InvoiceModal({ receipt, onClose, currencySymbol = '$' }:
         </div>
 
         {/* Scrollable Receipt Body (Thermal print standard visual style) */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 bg-[#fcfcf9]" id="printable-receipt-area">
+        <div className="thermal-receipt flex-1 overflow-y-auto p-6 md:p-8 space-y-6 bg-[#fcfcf9]" id="printable-receipt-area">
           {/* Logo Heading Header */}
           <div className="text-center space-y-1">
             <h1 className="text-2xl font-extrabold tracking-tight text-hotel-950 uppercase font-display">
@@ -202,7 +218,7 @@ export default function InvoiceModal({ receipt, onClose, currencySymbol = '$' }:
         </div>
 
         {/* Footer actions for printing and close reset */}
-        <div className="bg-brand-50 p-4 border-t border-brand-100 flex gap-2">
+        <div className="no-print bg-brand-50 p-4 border-t border-brand-100 flex gap-2">
           <button
             id="print-invoice-btn"
             onClick={handlePrint}
@@ -220,6 +236,7 @@ export default function InvoiceModal({ receipt, onClose, currencySymbol = '$' }:
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

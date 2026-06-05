@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bill } from '../types';
 import { calculateBillTotals } from '../utils/billing';
 import { Receipt, Tag, Percent, Banknote, Coins, AlertCircle, ShoppingBag, BedDouble, Sparkles, User, Phone, ArrowLeftRight } from 'lucide-react';
@@ -33,12 +33,19 @@ export default function BillingSummary({
   const [cashReceived, setCashReceived] = useState('');
   const [showPayment, setShowPayment] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCashReceived('');
     setShowPayment(false);
     setErrorMessage(null);
   }, [activeBill?.id]);
+
+  useEffect(() => {
+    if (showPayment && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [showPayment]);
 
   if (!activeBill) {
     return (
@@ -115,7 +122,8 @@ export default function BillingSummary({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
+        <div className="p-4 space-y-5">
         <div>
           <h3 className="text-xs font-bold text-brand-500 uppercase tracking-wider mb-2 flex items-center gap-1.5 pb-1 border-b border-brand-100">
             <BedDouble className="size-3.5 text-hotel-600" />
@@ -211,9 +219,9 @@ export default function BillingSummary({
             </div>
           )}
         </div>
-      </div>
+        </div>
 
-      <div className="bg-brand-50 border-t border-brand-200 p-4 space-y-4">
+        <div className="bg-brand-50 border-t border-brand-200 p-4 space-y-4">
         <div className="space-y-1.5 text-xs">
           {roomChargesOriginal > 0 && (
             <div className="flex justify-between text-brand-700">
@@ -335,6 +343,7 @@ export default function BillingSummary({
             </div>
           </form>
         )}
+        </div>
       </div>
     </div>
   );

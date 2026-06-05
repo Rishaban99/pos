@@ -977,6 +977,8 @@ export default function App() {
             receipt={selectedReceiptForInvoice}
             onClose={() => { setSelectedReceiptForInvoice(null); playBeep(600, 0.06); }}
             currencySymbol={currencySymbol}
+            printerType={terminalSettings.printerType}
+            stationId={terminalSettings.stationId}
           />
         )}
       </AnimatePresence>

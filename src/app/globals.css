@@ -69,3 +69,120 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(79, 70, 229, 0.4);
 }
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 80mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #fff !important;
+  }
+
+  /* Hide the POS app; receipt modal is portaled directly under body */
+  body > *:not(#invoice-modal-container) {
+    display: none !important;
+  }
+
+  #invoice-modal-container {
+    position: static !important;
+    inset: auto !important;
+    width: 80mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  #invoice-modal-container > div {
+    display: block !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    max-height: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  #printable-receipt-area,
+  #printable-receipt-area.thermal-receipt {
+    position: static !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 !important;
+    padding: 3mm 2mm !important;
+    background: #fff !important;
+    font-family: "Courier New", Courier, "Lucida Console", monospace !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+    color: #000 !important;
+    overflow: visible !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    -webkit-font-smoothing: none !important;
+    font-smooth: never !important;
+    text-rendering: geometricPrecision !important;
+    letter-spacing: 0 !important;
+  }
+
+  #printable-receipt-area,
+  #printable-receipt-area * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    border-color: #000 !important;
+    font-style: normal !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #printable-receipt-area .text-brand-500,
+  #printable-receipt-area .text-brand-600,
+  #printable-receipt-area .text-brand-700,
+  #printable-receipt-area .text-hotel-600,
+  #printable-receipt-area .text-emerald-600,
+  #printable-receipt-area .text-emerald-700,
+  #printable-receipt-area .text-emerald-800,
+  #printable-receipt-area .text-purple-600,
+  #printable-receipt-area .text-indigo-600 {
+    color: #000 !important;
+    font-weight: 700 !important;
+  }
+
+  #printable-receipt-area .border-dashed {
+    border-style: solid !important;
+    border-width: 2px 0 0 0 !important;
+  }
+
+  #printable-receipt-area .italic {
+    font-style: normal !important;
+    font-weight: 600 !important;
+  }
+
+  #printable-receipt-area h1 {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    font-family: "Courier New", Courier, monospace !important;
+  }
+
+  #printable-receipt-area .no-print,
+  .no-print {
+    display: none !important;
+  }
+}

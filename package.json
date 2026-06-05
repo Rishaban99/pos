@@ -14,19 +14,20 @@
     "db:seed": "prisma db seed"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.2",
+    "@prisma/client": "^6.19.3",
     "@tailwindcss/postcss": "^4.3.0",
     "dotenv": "^17.2.3",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "next": "^15.5.18",
-    "prisma": "^6.19.2",
+    "prisma": "^6.19.3",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@types/react": "19.2.15",
+    "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.6",
