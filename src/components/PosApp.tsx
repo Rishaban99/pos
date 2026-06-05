@@ -710,9 +710,9 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-slate-900 tracking-tight leading-none uppercase">
-                {terminalSettings.currency === 'USD' ? 'Luxe Haven POS' : `Luxe POS (${terminalSettings.currency})`}
+                {terminalSettings.currency === 'USD' ? 'Mount Ash Villa' : `Mount Ash Villa (${terminalSettings.currency})`}
               </h1>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Front Desk &amp; Dining Terminal</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Villa &amp;Resturent</p>
             </div>
           </div>
 

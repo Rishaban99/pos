@@ -56,11 +56,15 @@ export default function InvoiceModal({
           {/* Logo Heading Header */}
           <div className="text-center space-y-1">
             <h1 className="text-2xl font-extrabold tracking-tight text-hotel-950 uppercase font-display">
-              Luxe Haven Resort
+            Mount Ash Villa
             </h1>
-            <p className="text-xs font-semibold uppercase tracking-widest text-hotel-600">Front Desk &amp; Dining POS</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-hotel-600">ROOMS &amp; RESTAURANT</p>
             <p className="text-[10px] text-brand-500 font-mono">
-              777 Hospitality Blvd, Suite A • Tel: +1 (555) 019-2831
+                No 295/k-1 bank house road , Hatton 
+            </p>
+            
+            <p className="text-[10px] text-brand-500 font-mono">
+              Tel: 0777210369
             </p>
           </div>
 
