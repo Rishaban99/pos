@@ -3,13 +3,14 @@ import { prisma } from '@/lib/prisma';
 import {
   jsonError,
   requirePermission,
+  requireSession,
 } from '@/lib/auth-server';
 import { mapUser } from '@/lib/mappers';
 import { hashPassword } from '@/auth/password';
 import type { UserRole } from '@/auth/types';
 
 export async function GET(request: NextRequest) {
-  const session = await requirePermission(request, 'users:manage');
+  const session = await requireSession(request);
   if (session instanceof NextResponse) return session;
 
   const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } });

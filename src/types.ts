@@ -56,7 +56,7 @@ export interface Room {
   roomNumber: string;
 }
 
-export type FoodCategory = 'breakfast' | 'lunch' | 'dinner' | 'drinks';
+export type FoodCategory = 'breakfast' | 'lunch' | 'dinner' | 'drinks' | 'special';
 
 export interface FoodItem {
   id: string;
@@ -84,6 +84,7 @@ export interface RoomBookingItem {
   nights: number;
   discountPercentage: number;
   discountAmount: number;
+  discountReason?: string;
   boardPlan?: BoardPlan;
   boardPlanPricePerNight?: number;
   totalPrice: number;

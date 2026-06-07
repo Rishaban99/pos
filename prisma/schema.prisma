@@ -29,6 +29,7 @@ enum FoodCategory {
   lunch
   dinner
   drinks
+  special
 }
 
 enum AmenityCategory {
@@ -118,6 +119,7 @@ type RoomBookingItem {
   nights                 Int
   discountPercentage     Float
   discountAmount         Float
+  discountReason         String?
   boardPlan              String?
   boardPlanPricePerNight Float?
   totalPrice             Float

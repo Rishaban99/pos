@@ -81,3 +81,43 @@ export async function PATCH(
     return jsonError('Failed to update bill.', 500);
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await requirePermission(request, 'bills:complete');
+  if (session instanceof NextResponse) return session;
+
+  const { id } = await params;
+
+  try {
+    const bill = await prisma.bill.findUnique({ where: { id } });
+    if (!bill) return jsonError('Bill not found.', 404);
+
+    if (bill.status !== 'held') {
+      return jsonError('Only ongoing bills can be deleted.', 400);
+    }
+
+    // bill.roomBookings is stored as JSON array of objects
+    const roomBookings = bill.roomBookings as { id: string }[];
+    const roomIds = Array.isArray(roomBookings) ? roomBookings.map(r => r.id) : [];
+
+    await prisma.$transaction([
+      prisma.bill.delete({ where: { id } }),
+      ...(roomIds.length > 0
+        ? [
+            prisma.room.updateMany({
+              where: { id: { in: roomIds } },
+              data: { status: 'available' },
+            }),
+          ]
+        : []),
+    ]);
+
+    return NextResponse.json({ success: true, roomIds });
+  } catch (error) {
+    console.error(error);
+    return jsonError('Failed to delete bill.', 500);
+  }
+}

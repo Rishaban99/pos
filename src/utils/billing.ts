@@ -33,7 +33,9 @@ export interface BillTotals {
 export function buildRoomBookingItem(
   room: Room,
   nights: number,
-  discountOverride?: number,
+  discountType: 'auto' | 'percentage' | 'fixed' = 'auto',
+  discountValue: number = 0,
+  discountReason: string = '',
   boardPlan?: BoardPlan,
   boardPlanPricePerNight?: number,
   discountSettings: DiscountSettings = DEFAULT_DISCOUNT_SETTINGS
@@ -42,16 +44,23 @@ export function buildRoomBookingItem(
   const boardPriceRate = boardPlanPricePerNight || 0;
   const totalRatePerNight = room.pricePerNight + boardPriceRate;
 
+  const basePrice = totalRatePerNight * nights;
+  let discountAmt = 0;
   let discountPct = 0;
-  if (discountOverride !== undefined) {
-    discountPct = discountOverride;
+
+  if (discountType === 'fixed') {
+    discountAmt = discountValue;
+    discountPct = basePrice > 0 ? (discountAmt / basePrice) * 100 : 0;
+  } else if (discountType === 'percentage') {
+    discountPct = discountValue;
+    discountAmt = basePrice * (discountPct / 100);
   } else {
+    // auto
     discountPct = resolveAutoDiscountPercent(nights, discountSettings);
+    discountAmt = basePrice * (discountPct / 100);
   }
 
-  const basePrice = totalRatePerNight * nights;
-  const discountAmt = basePrice * (discountPct / 100);
-  const finalPrice = basePrice - discountAmt;
+  const finalPrice = Math.max(0, basePrice - discountAmt);
 
   return {
     id: room.id,
@@ -61,6 +70,7 @@ export function buildRoomBookingItem(
     nights,
     discountPercentage: discountPct,
     discountAmount: discountAmt,
+    discountReason,
     boardPlan: actualBoardPlan,
     boardPlanPricePerNight: boardPriceRate,
     totalPrice: finalPrice

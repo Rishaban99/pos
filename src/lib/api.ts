@@ -152,6 +152,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ cashReceived }),
       }),
+    delete: (id: string) =>
+      request<{ success: boolean; roomIds: string[] }>(`/api/bills/${id}`, {
+        method: 'DELETE',
+      }),
   },
 
   receipts: {

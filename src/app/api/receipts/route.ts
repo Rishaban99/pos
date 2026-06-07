@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { jsonError, requirePermission } from '@/lib/auth-server';
+import { jsonError, requirePermission, requireSession } from '@/lib/auth-server';
 import { mapReceipt } from '@/lib/mappers';
 
 export async function GET(request: NextRequest) {
-  const session = await requirePermission(request, 'ledger:view');
+  const session = await requireSession(request);
   if (session instanceof NextResponse) return session;
 
   const receipts = await prisma.salesReceipt.findMany({

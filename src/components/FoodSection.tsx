@@ -111,12 +111,13 @@ export default function FoodSection({
     switch (category) {
       case 'breakfast': return 'bg-amber-50 text-amber-800 border-amber-100';
       case 'lunch': return 'bg-blue-50 text-blue-800 border-blue-100';
-      case 'dinner': return 'bg-purple-50 text-purple-800 border-purple-100';
-      case 'drinks': return 'bg-rose-50 text-rose-800 border-rose-100';
+      case 'dinner': return 'bg-indigo-50 text-indigo-800 border-indigo-100';
+      case 'drinks': return 'bg-emerald-50 text-emerald-800 border-emerald-100';
+      case 'special': return 'bg-purple-50 text-purple-800 border-purple-100';
     }
   };
 
-  const categories: (FoodCategory | 'All')[] = ['All', 'breakfast', 'lunch', 'dinner', 'drinks'];
+  const categories: (FoodCategory | 'All')[] = ['All', 'breakfast', 'lunch', 'dinner', 'drinks', 'special'];
 
   return (
     <>
@@ -361,6 +362,7 @@ export default function FoodSection({
                     <option value="lunch">Lunch</option>
                     <option value="dinner">Dinner</option>
                     <option value="drinks">Drinks</option>
+                    <option value="special">Special</option>
                   </select>
                 </div>
 
@@ -448,6 +450,7 @@ export default function FoodSection({
                     <option value="lunch">Lunch</option>
                     <option value="dinner">Dinner</option>
                     <option value="drinks">Drinks</option>
+                    <option value="special">Special</option>
                   </select>
                 </div>
 

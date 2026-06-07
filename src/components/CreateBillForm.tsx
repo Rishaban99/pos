@@ -36,7 +36,9 @@ export default function CreateBillForm({
   const [draftRooms, setDraftRooms] = useState<RoomBookingItem[]>([]);
   const [selectedType, setSelectedType] = useState<RoomType | 'All'>('All');
   const [nightsInput, setNightsInput] = useState<Record<string, number>>({});
-  const [selectedDiscounts, setSelectedDiscounts] = useState<Record<string, string>>({});
+  const [discountTypes, setDiscountTypes] = useState<Record<string, 'auto' | 'percentage' | 'fixed'>>({});
+  const [discountValues, setDiscountValues] = useState<Record<string, string>>({});
+  const [discountReasons, setDiscountReasons] = useState<Record<string, string>>({});
   const [selectedBoardPlans, setSelectedBoardPlans] = useState<Record<string, BoardPlan>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +56,9 @@ export default function CreateBillForm({
   const totals = calculateBillTotals(draftRooms, [], [], serviceChargeRate, taxRate);
 
   const getNights = (roomId: string) => nightsInput[roomId] || 1;
-  const getSelectedDiscount = (roomId: string) => selectedDiscounts[roomId] || 'auto';
+  const getDiscountType = (roomId: string) => discountTypes[roomId] || 'auto';
+  const getDiscountValue = (roomId: string) => parseFloat(discountValues[roomId]) || 0;
+  const getDiscountReason = (roomId: string) => discountReasons[roomId] || '';
   const getSelectedBoardPlan = (roomId: string): BoardPlan => selectedBoardPlans[roomId] || 'Room Only';
 
   const handleSelectCustomer = (customer: Customer) => {
@@ -68,11 +72,12 @@ export default function CreateBillForm({
 
   const handleAddRoom = (room: Room) => {
     const nights = getNights(room.id);
-    const choice = getSelectedDiscount(room.id);
-    const override = choice === 'auto' ? undefined : parseInt(choice, 10);
+    const dType = getDiscountType(room.id);
+    const dVal = getDiscountValue(room.id);
+    const dReason = getDiscountReason(room.id);
     const bChoice = getSelectedBoardPlan(room.id);
     const bPrice = BOARD_PLAN_PRICES[bChoice];
-    const item = buildRoomBookingItem(room, nights, override, bChoice, bPrice, discountSettings);
+    const item = buildRoomBookingItem(room, nights, dType, dVal, dReason, bChoice, bPrice, discountSettings);
     setDraftRooms(prev => [...prev, item]);
   };
 
@@ -250,7 +255,6 @@ export default function CreateBillForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
             {filteredRooms.map(room => {
               const nights = getNights(room.id);
-              const discountChoice = getSelectedDiscount(room.id);
               return (
                 <div key={room.id} className="border border-brand-100 rounded-lg p-3 space-y-2">
                   <div className="flex justify-between items-start">
@@ -281,18 +285,44 @@ export default function CreateBillForm({
                       <option value="Full Board (FB)">FB (+{currencySymbol}75)</option>
                     </select>
                   </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-brand-600 flex items-center gap-1"><Percent className="size-3" /> Discount:</span>
-                    <select
-                      value={discountChoice}
-                      onChange={(e) => setSelectedDiscounts(prev => ({ ...prev, [room.id]: e.target.value }))}
-                      className="text-[10px] border border-brand-200 rounded px-1 py-0.5 max-w-[120px]"
-                    >
-                      <option value="auto">Auto</option>
-                      {(discountSettings?.manualOptions ?? [0, 5, 10, 15, 20]).map(pct => (
-                        <option key={pct} value={String(pct)}>{pct}%</option>
-                      ))}
-                    </select>
+                  <div className="flex flex-col gap-1.5 pt-1 border-t border-brand-50">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-brand-600 flex items-center gap-1"><Percent className="size-3" /> Discount:</span>
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={getDiscountType(room.id)}
+                          onChange={(e) => setDiscountTypes(prev => ({ ...prev, [room.id]: e.target.value as 'auto' | 'percentage' | 'fixed' }))}
+                          className="text-[10px] border border-brand-200 rounded px-1 py-0.5 max-w-[80px]"
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="percentage">%</option>
+                          <option value="fixed">Fixed</option>
+                        </select>
+                        {getDiscountType(room.id) !== 'auto' && (
+                          <input
+                            type="number"
+                            min="0"
+                            step={getDiscountType(room.id) === 'fixed' ? '0.01' : '1'}
+                            value={discountValues[room.id] || ''}
+                            onChange={(e) => setDiscountValues(prev => ({ ...prev, [room.id]: e.target.value }))}
+                            placeholder={getDiscountType(room.id) === 'percentage' ? '%' : currencySymbol}
+                            className="w-14 text-center text-[10px] border border-brand-200 rounded px-1 py-0.5"
+                          />
+                        )}
+                      </div>
+                    </div>
+                    {getDiscountType(room.id) !== 'auto' && (
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-brand-600 flex items-center gap-1 pl-4">Reason:</span>
+                        <input
+                          type="text"
+                          value={discountReasons[room.id] || ''}
+                          onChange={(e) => setDiscountReasons(prev => ({ ...prev, [room.id]: e.target.value }))}
+                          placeholder="e.g. VIP, Corporate"
+                          className="w-[120px] text-[10px] border border-brand-200 rounded px-1 py-0.5"
+                        />
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"

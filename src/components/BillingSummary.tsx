@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bill } from '../types';
 import { calculateBillTotals } from '../utils/billing';
-import { Receipt, Tag, Percent, Banknote, Coins, AlertCircle, ShoppingBag, BedDouble, Sparkles, User, Phone, ArrowLeftRight } from 'lucide-react';
+import { Receipt, Tag, Percent, Banknote, Coins, AlertCircle, ShoppingBag, BedDouble, Sparkles, User, Phone, ArrowLeftRight, Trash2 } from 'lucide-react';
 
 interface BillingSummaryProps {
   activeBill: Bill | null;
@@ -10,6 +10,7 @@ interface BillingSummaryProps {
   onRemoveAmenity: (amenityId: string) => void;
   onUpdateAmenityQuantity: (amenityId: string, delta: number) => void;
   onCloseBill: (cashReceived: number) => void;
+  onDeleteBill?: (billId: string) => void;
   onSwitchBill?: () => void;
   currencySymbol?: string;
   currencyCode?: string;
@@ -24,6 +25,7 @@ export default function BillingSummary({
   onRemoveAmenity,
   onUpdateAmenityQuantity,
   onCloseBill,
+  onDeleteBill,
   onSwitchBill,
   currencySymbol = '$',
   currencyCode = 'USD',
@@ -32,12 +34,14 @@ export default function BillingSummary({
 }: BillingSummaryProps) {
   const [cashReceived, setCashReceived] = useState('');
   const [showPayment, setShowPayment] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCashReceived('');
     setShowPayment(false);
+    setShowDeleteModal(false);
     setErrorMessage(null);
   }, [activeBill?.id]);
 
@@ -115,11 +119,18 @@ export default function BillingSummary({
           <p className="font-semibold flex items-center gap-1"><User className="size-3" /> {customer.name}</p>
           <p className="text-brand-300 flex items-center gap-1"><Phone className="size-3" /> {customer.phone}</p>
         </div>
-        {onSwitchBill && (
-          <button onClick={onSwitchBill} className="text-[10px] text-hotel-300 hover:text-white flex items-center gap-1 underline">
-            <ArrowLeftRight className="size-3" /> Switch bill
-          </button>
-        )}
+        <div className="flex gap-2">
+          {onSwitchBill && (
+            <button onClick={onSwitchBill} className="text-[10px] text-hotel-300 hover:text-white flex items-center gap-1 underline">
+              <ArrowLeftRight className="size-3" /> Switch bill
+            </button>
+          )}
+          {onDeleteBill && (
+            <button onClick={() => setShowDeleteModal(true)} className="text-[10px] text-red-300 hover:text-red-100 flex items-center gap-1 underline ml-auto">
+              <Trash2 className="size-3" /> Delete bill
+            </button>
+          )}
+        </div>
       </div>
 
       <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
@@ -142,9 +153,10 @@ export default function BillingSummary({
                       <p className="text-[11px] text-brand-500 mt-1">
                         {item.nights} night{item.nights > 1 ? 's' : ''} × {currencySymbol}{(item.pricePerNight + (item.boardPlanPricePerNight || 0)).toFixed(2)}
                       </p>
-                      {item.discountPercentage > 0 && (
+                      {item.discountAmount > 0 && (
                         <p className="text-[9px] font-bold text-emerald-600 uppercase flex items-center gap-0.5 mt-0.5">
-                          <Tag className="size-2.5" /> {item.discountPercentage}% off (-{currencySymbol}{item.discountAmount.toFixed(2)})
+                          <Tag className="size-2.5" /> {item.discountPercentage.toFixed(1)}% off (-{currencySymbol}{item.discountAmount.toFixed(2)})
+                          {item.discountReason ? ` - ${item.discountReason}` : ''}
                         </p>
                       )}
                     </div>
@@ -345,6 +357,19 @@ export default function BillingSummary({
         )}
         </div>
       </div>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900">Delete Bill?</h3>
+            <p className="text-sm text-slate-500">Are you sure you want to delete this bill? This action cannot be undone and booked rooms will be released.</p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-sm">Cancel</button>
+              <button onClick={() => { setShowDeleteModal(false); onDeleteBill?.(activeBill.id); }} className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-sm">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

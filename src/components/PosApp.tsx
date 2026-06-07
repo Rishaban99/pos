@@ -12,8 +12,11 @@ import DailySalesSummary from './DailySalesSummary';
 import InvoiceModal from './InvoiceModal';
 import LoginScreen from './LoginScreen';
 import StaffManagementSection from './StaffManagementSection';
+import DashboardSection from './DashboardSection';
+import RevenueSection from './RevenueSection';
 import { useAuth } from '@/context/AuthContext';
 import { getRoleLabel } from '@/auth/permissions';
+import type { StoredUser } from '@/auth/types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building, 
@@ -29,10 +32,12 @@ import {
   Sparkles,
   Users,
   UserCog,
-  Percent
+  Percent,
+  LayoutDashboard,
+  LineChart
 } from 'lucide-react';
 
-type LeftTab = 'guests' | 'rooms' | 'food' | 'amenities' | 'logs' | 'staff';
+type LeftTab = 'dashboard' | 'revenue' | 'guests' | 'rooms' | 'food' | 'amenities' | 'logs' | 'staff';
 
 const DEFAULT_TERMINAL: TerminalSettings = {
   currency: 'USD',
@@ -60,6 +65,7 @@ export default function App() {
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [users, setUsers] = useState<StoredUser[]>([]);
   const [amenityItems, setAmenityItems] = useState<AmenityItem[]>([]);
   const [activeBillId, setActiveBillId] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<SalesReceipt[]>([]);
@@ -71,13 +77,13 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Active view on the Left Pane
-  const [activeLeftTab, setActiveLeftTab] = useState<LeftTab>('guests');
+  const [activeLeftTab, setActiveLeftTab] = useState<LeftTab>('dashboard');
 
   const visibleTabs = useMemo(() => {
-    const tabs: LeftTab[] = ['guests'];
+    const tabs: LeftTab[] = ['dashboard', 'guests'];
     if (canManageRooms) tabs.push('rooms');
     tabs.push('food', 'amenities');
-    if (canViewLedger) tabs.push('logs');
+    if (canViewLedger) tabs.push('revenue', 'logs');
     if (canManageUsers) tabs.push('staff');
     return tabs;
   }, [canManageRooms, canViewLedger, canManageUsers]);
@@ -141,15 +147,17 @@ export default function App() {
           receiptsData,
           terminalData,
           discountData,
+          usersData,
         ] = await Promise.all([
           api.rooms.list(),
           api.food.list(),
           api.amenities.list(),
           api.bills.list(),
           api.customers.list(),
-          canViewLedger ? api.receipts.list() : Promise.resolve([]),
+          api.receipts.list().catch(() => []),
           api.settings.getTerminal(),
           api.settings.getDiscounts(),
+          api.users.list().catch(() => []),
         ]);
 
         if (cancelled) return;
@@ -161,6 +169,7 @@ export default function App() {
         setReceipts(receiptsData);
         setTerminalSettings(terminalData);
         setDiscountSettings(discountData);
+        setUsers(usersData);
 
         const heldBill = billsData.find(b => b.status === 'held');
         setActiveBillId(prev => {
@@ -179,11 +188,11 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [session, canViewLedger]);
+  }, [session, canViewLedger, canManageUsers]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeLeftTab)) {
-      setActiveLeftTab('guests');
+      setActiveLeftTab('dashboard');
     }
   }, [visibleTabs, activeLeftTab]);
 
@@ -629,6 +638,28 @@ export default function App() {
       setCheckoutNotice('Failed to close bill.');
     }
   };
+  const handleDeleteBill = async (billId: string) => {
+    if (!hasPermission('bills:complete')) return;
+    try {
+      const response = await api.bills.delete(billId);
+      if (response.roomIds && response.roomIds.length > 0) {
+        setRooms(prev =>
+          prev.map(r =>
+            response.roomIds.includes(r.id) ? { ...r, status: 'available' as const } : r
+          )
+        );
+      }
+      setBills(prev => prev.filter(b => b.id !== billId));
+      if (activeBillId === billId) {
+        setActiveBillId(null);
+      }
+      playBeep(400, 0.1);
+      setCheckoutNotice('Ongoing bill deleted successfully.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to delete bill.');
+    }
+  };
 
   const handleToggleRoomStatus = async (roomId: string) => {
     if (!hasPermission('rooms:manage')) return;
@@ -777,6 +808,34 @@ export default function App() {
           {/* Main Module Tabs Nav Selectors */}
           <div className="flex flex-wrap bg-slate-200/50 p-1 rounded-xl gap-1 self-start select-none">
             <button
+              id="tab-btn-dashboard"
+              onClick={() => { setActiveLeftTab('dashboard'); playBeep(650, 0.05); }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                activeLeftTab === 'dashboard'
+                  ? 'bg-white text-indigo-700 shadow-sm font-bold'
+                  : 'text-slate-600 hover:bg-slate-250/30'
+              }`}
+            >
+              <LayoutDashboard className="size-4" />
+              Dashboard
+            </button>
+
+            {canViewLedger && (
+              <button
+                id="tab-btn-revenue"
+                onClick={() => { setActiveLeftTab('revenue'); playBeep(650, 0.05); }}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                  activeLeftTab === 'revenue'
+                    ? 'bg-white text-indigo-700 shadow-sm font-bold'
+                    : 'text-slate-600 hover:bg-slate-250/30'
+                }`}
+              >
+                <LineChart className="size-4" />
+                Revenue
+              </button>
+            )}
+
+            <button
               id="tab-btn-guests"
               onClick={() => { setActiveLeftTab('guests'); playBeep(650, 0.05); }}
               className={`relative px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
@@ -873,6 +932,23 @@ export default function App() {
 
           {/* ACTIVE ASSIGNED COMPONENT CONTAINER PANE WITH FADE SEAMLESS DESIGN */}
           <div className="flex-1">
+            {activeLeftTab === 'dashboard' && (
+              <DashboardSection
+                rooms={rooms}
+                receipts={receipts}
+                bills={bills}
+                currencySymbol={currencySymbol}
+                users={users}
+              />
+            )}
+
+            {activeLeftTab === 'revenue' && canViewLedger && (
+              <RevenueSection
+                receipts={receipts}
+                currencySymbol={currencySymbol}
+              />
+            )}
+
             {activeLeftTab === 'guests' && (
               <GuestSection
                 rooms={rooms}
@@ -960,6 +1036,7 @@ export default function App() {
             onRemoveAmenity={handleRemoveAmenity}
             onUpdateAmenityQuantity={handleUpdateAmenityQuantity}
             onCloseBill={handleCloseBill}
+            onDeleteBill={handleDeleteBill}
             onSwitchBill={() => setActiveLeftTab('guests')}
             currencySymbol={currencySymbol}
             currencyCode={terminalSettings.currency}
