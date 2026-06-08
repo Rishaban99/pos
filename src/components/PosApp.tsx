@@ -581,6 +581,31 @@ export default function App() {
     playBeep(550, 0.06);
   };
 
+  const handleRemoveRoom = async (roomId: string) => {
+    if (!hasPermission('bills:update')) return;
+    if (!activeBillId) return;
+
+    updateActiveBill(bill => ({ ...bill, roomBookings: bill.roomBookings.filter(item => item.id !== roomId) }));
+    playBeep(400, 0.06);
+
+    try {
+      await api.rooms.update(roomId, { status: 'available' });
+      setRooms(prev => prev.map(room => (room.id === roomId ? { ...room, status: 'available' } : room)));
+      setCheckoutNotice('Room removed from bill and marked available.');
+    } catch {
+      setCheckoutNotice('Room removed from bill, but failed to update room availability.');
+    }
+    setTimeout(() => setCheckoutNotice(null), 3000);
+  };
+
+  const handleEditBill = () => {
+    if (!hasPermission('bills:update')) return;
+    setActiveLeftTab('guests');
+    playBeep(650, 0.05);
+    setCheckoutNotice('Navigated to bill edit view.');
+    setTimeout(() => setCheckoutNotice(null), 3000);
+  };
+
   const handleRemoveFood = (foodId: string) => {
     if (!hasPermission('bills:update')) return;
     if (!activeBillId) return;
@@ -1042,11 +1067,13 @@ export default function App() {
           <BillingSummary
             activeBill={activeBill}
             onRemoveFood={handleRemoveFood}
+            onRemoveRoom={handleRemoveRoom}
             onUpdateFoodQuantity={handleUpdateFoodQuantity}
             onRemoveAmenity={handleRemoveAmenity}
             onUpdateAmenityQuantity={handleUpdateAmenityQuantity}
             onCloseBill={handleCloseBill}
             onDeleteBill={handleDeleteBill}
+            onEditBill={handleEditBill}
             onSwitchBill={() => setActiveLeftTab('guests')}
             currencySymbol={currencySymbol}
             currencyCode={terminalSettings.currency}

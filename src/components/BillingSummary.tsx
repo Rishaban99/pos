@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bill } from '../types';
 import { calculateBillTotals } from '../utils/billing';
-import { Receipt, Tag, Percent, Banknote, Coins, AlertCircle, ShoppingBag, BedDouble, Sparkles, User, Phone, ArrowLeftRight, Trash2 } from 'lucide-react';
+import { Receipt, Tag, Percent, Banknote, Coins, AlertCircle, ShoppingBag, BedDouble, Sparkles, User, Phone, ArrowLeftRight, Trash2, Pencil } from 'lucide-react';
 
 interface BillingSummaryProps {
   activeBill: Bill | null;
@@ -9,8 +9,10 @@ interface BillingSummaryProps {
   onUpdateFoodQuantity: (foodId: string, delta: number) => void;
   onRemoveAmenity: (amenityId: string) => void;
   onUpdateAmenityQuantity: (amenityId: string, delta: number) => void;
+  onRemoveRoom: (roomId: string) => void;
   onCloseBill: (cashReceived: number) => void;
   onDeleteBill?: (billId: string) => void;
+  onEditBill?: () => void;
   onSwitchBill?: () => void;
   currencySymbol?: string;
   currencyCode?: string;
@@ -21,11 +23,13 @@ interface BillingSummaryProps {
 export default function BillingSummary({
   activeBill,
   onRemoveFood,
+  onRemoveRoom,
   onUpdateFoodQuantity,
   onRemoveAmenity,
   onUpdateAmenityQuantity,
   onCloseBill,
   onDeleteBill,
+  onEditBill,
   onSwitchBill,
   currencySymbol = '$',
   currencyCode = 'USD',
@@ -121,12 +125,17 @@ export default function BillingSummary({
         </div>
         <div className="flex gap-2">
           {onSwitchBill && (
-            <button onClick={onSwitchBill} className="text-[10px] text-hotel-300 hover:text-white flex items-center gap-1 underline">
+            <button type="button" onClick={onSwitchBill} className="text-[10px] text-hotel-300 hover:text-white flex items-center gap-1 underline">
               <ArrowLeftRight className="size-3" /> Switch bill
             </button>
           )}
+          {onEditBill && (
+            <button type="button" onClick={onEditBill} className="text-[10px] text-brand-100 hover:text-white flex items-center gap-1 underline">
+              <Pencil className="size-3" /> Edit bill
+            </button>
+          )}
           {onDeleteBill && (
-            <button onClick={() => setShowDeleteModal(true)} className="text-[10px] text-red-300 hover:text-red-100 flex items-center gap-1 underline ml-auto">
+            <button type="button" onClick={() => setShowDeleteModal(true)} className="text-[10px] text-red-300 hover:text-red-100 flex items-center gap-1 underline ml-auto">
               <Trash2 className="size-3" /> Delete bill
             </button>
           )}
@@ -161,6 +170,9 @@ export default function BillingSummary({
                       )}
                     </div>
                     <span className="font-mono font-bold">{currencySymbol}{item.totalPrice.toFixed(2)}</span>
+                    <button type="button" onClick={() => onRemoveRoom(item.id)} className="text-[10px] text-brand-300 hover:text-red-500 flex items-center gap-1">
+                      <Trash2 className="size-3" /> Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -191,7 +203,7 @@ export default function BillingSummary({
                     </div>
                     <div className="text-right">
                       <div className="font-mono font-bold">{currencySymbol}{item.totalPrice.toFixed(2)}</div>
-                      <button onClick={() => onRemoveFood(item.id)} className="text-[10px] text-brand-300 hover:text-red-500">Remove</button>
+                        <button type="button" onClick={() => onRemoveFood(item.id)} className="text-[10px] text-brand-300 hover:text-red-500">Remove</button>
                     </div>
                   </div>
                 </div>
@@ -223,7 +235,7 @@ export default function BillingSummary({
                     </div>
                     <div className="text-right">
                       <div className="font-mono font-bold">{currencySymbol}{item.totalPrice.toFixed(2)}</div>
-                      <button onClick={() => onRemoveAmenity(item.id)} className="text-[10px] text-brand-300 hover:text-red-500">Remove</button>
+                      <button type="button" onClick={() => onRemoveAmenity(item.id)} className="text-[10px] text-brand-300 hover:text-red-500">Remove</button>
                     </div>
                   </div>
                 </div>
