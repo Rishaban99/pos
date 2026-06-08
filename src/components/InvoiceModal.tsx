@@ -57,7 +57,7 @@ export default function InvoiceModal({
         <div className="thermal-receipt flex-1 overflow-y-auto p-6 md:p-8 space-y-6 bg-[#fcfcf9]" id="printable-receipt-area">
           {/* Logo Heading Header */}
           <div className="flex items-center justify-center">
-            <img src={logo.src} alt="Mount Ash Villa" className="w-40 h-40 object-cover " />
+            <img alt="Mount Ash Villa" className="w-40 h-40 object-cover" src={logo.src} />
           </div>
           <div className="text-center space-y-1">
             <h1 className="text-3xl font-extrabold  tracking-tight text-hotel-950  uppercase font-display">
@@ -75,7 +75,6 @@ export default function InvoiceModal({
 
           <div className="border-t border-b border-dashed border-brand-350 py-3  text-xs font-mono text-brand-700">
             <div>INVOICE: <span className="font-bold font-sans text-brand-900">{receipt.invoiceNumber}</span></div>
-            <div className="">DATE: <span className="font-sans text-brand-900">{new Date(receipt.timestamp).toLocaleString()}</span></div>
             <div className={receipt.customer?.phone ? '' : ''}>MODE: <span className="font-bold text-emerald-700">CASH BILLING</span></div>
           </div>
 

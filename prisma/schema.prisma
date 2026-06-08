@@ -142,17 +142,17 @@ type AmenityChargeItem {
 }
 
 model Bill {
-  id             String             @id @default(auto()) @map("_id") @db.ObjectId
-  billNumber     String             @unique
-  customerId     String             @db.ObjectId
+  id             String              @id @default(auto()) @map("_id") @db.ObjectId
+  billNumber     String              @unique
+  customerId     String              @db.ObjectId
   customer       CustomerSnapshot
-  status         BillStatus         @default(held)
-  createdAt      DateTime           @default(now())
+  status         BillStatus          @default(held)
+  createdAt      DateTime            @default(now())
   closedAt       DateTime?
   roomBookings   RoomBookingItem[]
   foodOrders     FoodOrderItem[]
   amenityCharges AmenityChargeItem[]
-  receiptId      String?            @db.ObjectId
+  receiptId      String?             @db.ObjectId
 
   @@index([status])
 }
@@ -180,10 +180,10 @@ type ReceiptAmenityLine {
 }
 
 model SalesReceipt {
-  id                String              @id @default(auto()) @map("_id") @db.ObjectId
-  invoiceNumber     String              @unique
-  timestamp         DateTime            @default(now())
-  billId            String?             @db.ObjectId
+  id                String               @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceNumber     String               @unique
+  timestamp         DateTime             @default(now())
+  billId            String?              @db.ObjectId
   billNumber        String?
   customer          CustomerSnapshot?
   roomCharges       Float
@@ -207,15 +207,15 @@ type DiscountAutoRule {
 }
 
 model TerminalSettings {
-  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
-  singletonKey       String      @unique @default("default")
-  currency           Currency    @default(USD)
-  taxRate            Float       @default(5)
-  serviceChargeRate  Float       @default(10)
-  printerType        PrinterType @default(Thermal_80mm)
-  stationId          String      @default("FRONT-DESK-04")
-  operatorName       String      @default("Front Desk")
-  soundEnabled       Boolean     @default(true)
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  singletonKey      String      @unique @default("default")
+  currency          Currency    @default(USD)
+  taxRate           Float       @default(5)
+  serviceChargeRate Float       @default(10)
+  printerType       PrinterType @default(Thermal_80mm)
+  stationId         String      @default("FRONT-DESK-04")
+  operatorName      String      @default("Front Desk")
+  soundEnabled      Boolean     @default(true)
 }
 
 model DiscountSettings {
@@ -226,12 +226,12 @@ model DiscountSettings {
 }
 
 model Session {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  token     String   @unique
-  userId    String   @db.ObjectId
-  username  String
-  role      UserRole
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  token       String   @unique
+  userId      String   @db.ObjectId
+  username    String
+  role        UserRole
   displayName String
-  loggedInAt DateTime @default(now())
-  expiresAt DateTime
+  loggedInAt  DateTime @default(now())
+  expiresAt   DateTime
 }

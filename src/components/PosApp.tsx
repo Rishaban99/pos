@@ -720,13 +720,19 @@ export default function App() {
     }
   };
 
-  const handleDeleteReceipt = (receiptId: string) => {
-    setReceipts(prev =>
-      prev.filter(receipt => receipt.id !== receiptId)
-    );
-    playBeep(400, 0.1);
-    setCheckoutNotice('Receipt deleted successfully.');
-    setTimeout(() => setCheckoutNotice(null), 3000);
+  const handleDeleteReceipt = async (receiptId: string) => {
+    try {
+      await api.receipts.delete(receiptId);
+      setReceipts(prev =>
+        prev.filter(receipt => receipt.id !== receiptId)
+      );
+      playBeep(400, 0.1);
+      setCheckoutNotice('Receipt deleted from database.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    } catch {
+      setCheckoutNotice('Failed to delete receipt.');
+      setTimeout(() => setCheckoutNotice(null), 3000);
+    }
   };
 
   const saveSettings = async () => {

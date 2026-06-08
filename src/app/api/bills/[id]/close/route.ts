@@ -70,8 +70,29 @@ export async function POST(
       taxRate
     );
 
-    const receiptCount = await prisma.salesReceipt.count();
-    const invoiceNumber = generateInvoiceNumber(receiptCount);
+    // Generate a unique invoice number by finding the max for today and incrementing
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const todayReceipts = await prisma.salesReceipt.findMany({
+      where: {
+        timestamp: {
+          gte: new Date(todayStr),
+          lt: new Date(new Date(todayStr).getTime() + 86400000),
+        },
+      },
+      select: { invoiceNumber: true },
+      orderBy: { invoiceNumber: 'desc' },
+      take: 1,
+    });
+
+    let invoiceNumber: string;
+    if (todayReceipts.length > 0) {
+      const lastInvoice = todayReceipts[0].invoiceNumber;
+      const lastNumber = parseInt(lastInvoice.split('-')[2], 10);
+      invoiceNumber = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastNumber + 1).padStart(4, '0')}`;
+    } else {
+      invoiceNumber = generateInvoiceNumber(0);
+    }
     const cashChange = cashReceived - totals.total;
 
     const receipt = await prisma.salesReceipt.create({

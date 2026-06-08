@@ -294,14 +294,13 @@ export function buildThermalReceiptDocument(
 }
 
 export function printThermalReceipt(
-  receipt: SalesReceipt,
-  currencySymbol: string,
-  options?: {
+  _receipt: SalesReceipt,
+  _currencySymbol: string,
+  _options?: {
     printerType?: TerminalSettings['printerType'];
     stationId?: string;
   }
 ): void {
-  const html = buildThermalReceiptDocument(receipt, currencySymbol, options);
   const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=360,height=720');
 
   if (!printWindow) {
@@ -309,6 +308,7 @@ export function printThermalReceipt(
     return;
   }
 
+  //const html = buildThermalReceiptDocument(receipt, currencySymbol, options);
   //printWindow.document.open();
   // printWindow.document.write(html);
   //printWindow.document.close();

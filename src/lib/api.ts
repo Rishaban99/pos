@@ -160,6 +160,10 @@ export const api = {
 
   receipts: {
     list: () => request<SalesReceipt[]>('/api/receipts'),
+    delete: (id: string) =>
+      request<{ success: boolean; receiptId: string }>(`/api/receipts/${id}`, {
+        method: 'DELETE',
+      }),
     clear: () =>
       request<{ success: boolean }>('/api/receipts', { method: 'DELETE' }),
   },

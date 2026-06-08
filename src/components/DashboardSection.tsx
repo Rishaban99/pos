@@ -4,7 +4,7 @@ import type { StoredUser } from '@/auth/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { DollarSign, Home, Receipt, TrendingUp, Calendar, UserCog, User } from 'lucide-react';
+import { Receipt, TrendingUp, UserCog, User } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -24,7 +24,7 @@ interface DashboardSectionProps {
 
 export default function DashboardSection({ rooms, receipts, bills, users = [], currencySymbol }: DashboardSectionProps) {
   // --- KPIs Calculation ---
-  const { totalRevenue, todaysRevenue, monthlyRevenue, occupancyRate, activeFolios, activeSuperadmins, activeReceptionists } = useMemo(() => {
+  const { todaysRevenue, activeFolios, activeSuperadmins, activeReceptionists } = useMemo(() => {
     let totalRev = 0;
     let todayRev = 0;
     let monthRev = 0;
@@ -152,11 +152,7 @@ export default function DashboardSection({ rooms, receipts, bills, users = [], c
           </CardContent>
         </Card>
         
-        
 
-       
-
-    
 
         {/* Row 2 */}
         <Card>
