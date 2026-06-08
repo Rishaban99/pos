@@ -13,14 +13,31 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(receipts.map(mapReceipt));
 }
 
-export async function DELETE(request: NextRequest) {
-  const session = await requirePermission(request, 'ledger:clear');
-  if (session instanceof NextResponse) return session;
-
+export async function DELETE(request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    await prisma.salesReceipt.deleteMany();
-    return NextResponse.json({ success: true });
-  } catch {
-    return jsonError('Failed to clear receipts.', 500);
+    const { id } = await params;
+
+    await prisma.salesReceipt.delete({
+      where: {
+        id,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Receipt deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to delete receipt",
+      },
+      { status: 500 }
+    );
   }
 }

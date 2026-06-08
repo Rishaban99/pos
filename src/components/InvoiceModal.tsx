@@ -76,17 +76,6 @@ export default function InvoiceModal({
           <div className="border-t border-b border-dashed border-brand-350 py-3  text-xs font-mono text-brand-700">
             <div>INVOICE: <span className="font-bold font-sans text-brand-900">{receipt.invoiceNumber}</span></div>
             <div className="">DATE: <span className="font-sans text-brand-900">{new Date(receipt.timestamp).toLocaleString()}</span></div>
-            {receipt.billNumber && (
-              <div>FOLIO: <span className="font-bold font-sans text-brand-900">{receipt.billNumber}</span></div>
-            )}
-            {receipt.customer && (
-              <div className={receipt.billNumber ? '' : ''}>
-                GUEST: <span className="font-sans font-bold text-brand-900">{receipt.customer.name}</span>
-              </div>
-            )}
-            {receipt.customer?.phone && (
-              <div>TEL: <span className="font-sans text-brand-900">{receipt.customer.phone}</span></div>
-            )}
             <div className={receipt.customer?.phone ? '' : ''}>MODE: <span className="font-bold text-emerald-700">CASH BILLING</span></div>
           </div>
 
