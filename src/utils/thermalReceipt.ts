@@ -309,9 +309,9 @@ export function printThermalReceipt(
     return;
   }
 
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
+  //printWindow.document.open();
+  // printWindow.document.write(html);
+  //printWindow.document.close();
 
   printWindow.onafterprint = () => {
     printWindow.close();

@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { SalesReceipt, TerminalSettings } from '../types';
 import { printThermalReceipt } from '../utils/thermalReceipt';
 import { Printer, X, ShieldCheck } from 'lucide-react';
+import logo from '../asset/logo x.jpg'
+
 
 interface InvoiceModalProps {
   receipt: SalesReceipt | null;
@@ -54,11 +56,14 @@ export default function InvoiceModal({
         {/* Scrollable Receipt Body (Thermal print standard visual style) */}
         <div className="thermal-receipt flex-1 overflow-y-auto p-6 md:p-8 space-y-6 bg-[#fcfcf9]" id="printable-receipt-area">
           {/* Logo Heading Header */}
+          <div className="flex items-center justify-center">
+            <img src={logo.src} alt="Mount Ash Villa" className="w-40 h-40 object-cover " />
+          </div>
           <div className="text-center space-y-1">
-            <h1 className="text-2xl font-extrabold tracking-tight text-hotel-950 uppercase font-display">
+            <h1 className="text-3xl font-extrabold  tracking-tight text-hotel-950  uppercase font-display">
             Mount Ash Villa
             </h1>
-            <p className="text-xs font-semibold uppercase tracking-widest text-hotel-600">ROOMS &amp; RESTAURANT</p>
+            <p className="text-xs font-mono uppercase tracking-widest text-hotel-600">ROOMS &amp; RESTAURANT</p>
             <p className="text-[10px] text-brand-500 font-mono">
                 No 295/k-1 bank house road , Hatton 
             </p>
@@ -68,21 +73,21 @@ export default function InvoiceModal({
             </p>
           </div>
 
-          <div className="border-t border-b border-dashed border-brand-350 py-3 grid grid-cols-2 gap-y-1.5 text-xs font-mono text-brand-700">
+          <div className="border-t border-b border-dashed border-brand-350 py-3  text-xs font-mono text-brand-700">
             <div>INVOICE: <span className="font-bold font-sans text-brand-900">{receipt.invoiceNumber}</span></div>
-            <div className="text-right">DATE: <span className="font-sans text-brand-900">{new Date(receipt.timestamp).toLocaleString()}</span></div>
+            <div className="">DATE: <span className="font-sans text-brand-900">{new Date(receipt.timestamp).toLocaleString()}</span></div>
             {receipt.billNumber && (
               <div>FOLIO: <span className="font-bold font-sans text-brand-900">{receipt.billNumber}</span></div>
             )}
             {receipt.customer && (
-              <div className={receipt.billNumber ? 'text-right' : ''}>
+              <div className={receipt.billNumber ? '' : ''}>
                 GUEST: <span className="font-sans font-bold text-brand-900">{receipt.customer.name}</span>
               </div>
             )}
             {receipt.customer?.phone && (
               <div>TEL: <span className="font-sans text-brand-900">{receipt.customer.phone}</span></div>
             )}
-            <div className={receipt.customer?.phone ? 'text-right' : ''}>MODE: <span className="font-bold text-emerald-700">CASH BILLING</span></div>
+            <div className={receipt.customer?.phone ? '' : ''}>MODE: <span className="font-bold text-emerald-700">CASH BILLING</span></div>
           </div>
 
           {/* ITEM FOLIO SUMMARY */}
@@ -90,12 +95,12 @@ export default function InvoiceModal({
             {/* Rooms charges */}
             {receipt.rooms.length > 0 && (
               <div className="space-y-2">
-                <span className="text-[10px] font-bold text-hotel-800 uppercase tracking-wider">ROOM LODGINGS</span>
+                <span className="text-[12px]  font-mono text-hotel-800 uppercase tracking-wider">ROOM LODGINGS</span>
                 <div className="space-y-2">
                   {receipt.rooms.map((room, idx) => (
                     <div key={idx} className="text-xs flex justify-between items-start gap-3">
                       <div>
-                        <div className="font-bold text-brand-900">Rm {room.roomNumber} - {room.name}</div>
+                        <div className="font-bold font-sans text-brand-900">Rm {room.roomNumber} - {room.name}</div>
                         <div className="text-brand-500 text-[11px] font-mono pl-2">
                           {room.nights} {room.nights === 1 ? 'night' : 'nights'} × {currencySymbol}{(room.pricePerNight + (room.boardPlanPricePerNight || 0)).toFixed(2)}
                           {room.boardPlan && room.boardPlan !== 'Room Only' && (
@@ -122,10 +127,10 @@ export default function InvoiceModal({
             {/* Food charges */}
             {receipt.foods.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-brand-100">
-                <span className="text-[10px] font-bold text-brand-500 uppercase tracking-wider">RESTAURANT &amp; BEVERAGES</span>
+                <span className="text-[12px] font-mono text-brand-500 uppercase tracking-wider">RESTAURANT &amp; BEVERAGES</span>
                 <div className="space-y-2">
                   {receipt.foods.map((food, idx) => (
-                    <div key={idx} className="text-xs flex justify-between items-center gap-3">
+                    <div key={idx} className="text-xs flex justify-between items-center gap-3 font-sans">
                       <div>
                         <div className="font-bold text-brand-900">{food.name}</div>
                         <div className="text-brand-500 text-[11px] font-mono pl-2">
@@ -144,10 +149,10 @@ export default function InvoiceModal({
             {/* Amenities charges */}
             {receipt.amenities && receipt.amenities.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-brand-100">
-                <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">ROOM AMENITIES</span>
+                <span className="text-[12px] font-mono text-purple-600 uppercase tracking-wider">ROOM AMENITIES</span>
                 <div className="space-y-2">
                   {receipt.amenities.map((amenity, idx) => (
-                    <div key={idx} className="text-xs flex justify-between items-center gap-3">
+                    <div key={idx} className="text-xs flex justify-between items-center gap-3 font-sans">
                       <div>
                         <div className="font-bold text-brand-900">{amenity.name}</div>
                         <div className="text-brand-500 text-[11px] font-mono pl-2">

@@ -6,6 +6,7 @@ interface DailySalesSummaryProps {
   receipts: SalesReceipt[];
   onSelectReceipt: (receipt: SalesReceipt) => void;
   onClearReceipts: () => void;
+  onDeleteReceipt: (receiptId: string) => void;
   currencySymbol?: string;
   canClearLogs?: boolean;
 }
@@ -14,6 +15,7 @@ export default function DailySalesSummary({
   receipts,
   onSelectReceipt,
   onClearReceipts,
+  onDeleteReceipt,
   currencySymbol = '$',
   canClearLogs = true
 }: DailySalesSummaryProps) {
@@ -129,6 +131,7 @@ export default function DailySalesSummary({
                    <th className="px-4 py-3 text-right">Amenities</th>
                    <th className="px-4 py-3 text-right">Grand Total</th>
                    <th className="px-4 py-3 text-center">Action</th>
+                   
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-100">
@@ -155,7 +158,7 @@ export default function DailySalesSummary({
                     <td className="px-4 py-2.5 text-right font-mono font-bold text-hotel-750">
                       {currencySymbol}{r.total.toFixed(2)}
                     </td>
-                    <td className="px-4 py-2.5 text-center">
+                    <td className="px-4 py-2.5 text-center flex items-center gap-2">
                       <button
                         id={`reprint-receipt-btn-${r.id}`}
                         onClick={() => onSelectReceipt(r)}
@@ -163,7 +166,14 @@ export default function DailySalesSummary({
                       >
                         Reprint
                       </button>
+                      <button className="text-xs text-hotel-700 hover:text-hotel-900 hover:underline font-semibold cursor-pointer py-1 px-2.5 bg-red-50 text-red-700 border border-red-100 rounded shadow-3xs"
+                     onClick={() => onDeleteReceipt(r.id)}
+
+                      >
+                        delete
+                      </button>
                     </td>
+                   
                   </tr>
                 ))}
               </tbody>

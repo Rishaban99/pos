@@ -695,6 +695,15 @@ export default function App() {
     }
   };
 
+  const handleDeleteReceipt = (receiptId: string) => {
+    setReceipts(prev =>
+      prev.filter(receipt => receipt.id !== receiptId)
+    );
+    playBeep(400, 0.1);
+    setCheckoutNotice('Receipt deleted successfully.');
+    setTimeout(() => setCheckoutNotice(null), 3000);
+  };
+
   const saveSettings = async () => {
     try {
       const [terminal, discounts] = await Promise.all([
@@ -1016,6 +1025,7 @@ export default function App() {
                 receipts={receipts}
                 onSelectReceipt={(r) => { setSelectedReceiptForInvoice(r); playBeep(750, 0.08); }}
                 onClearReceipts={handleClearShiftReceipts}
+                onDeleteReceipt={handleDeleteReceipt}
                 currencySymbol={currencySymbol}
                 canClearLogs={hasPermission('ledger:clear')}
               />
