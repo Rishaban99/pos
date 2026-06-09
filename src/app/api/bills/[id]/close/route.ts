@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { jsonError, requirePermission } from '@/lib/auth-server';
 import { mapBill, mapReceipt } from '@/lib/mappers';
@@ -70,68 +71,80 @@ export async function POST(
       taxRate
     );
 
-    // Generate a unique invoice number by finding the max for today and incrementing
+    // Generate a unique invoice number by using today's latest invoice and retrying on collision.
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const todayReceipts = await prisma.salesReceipt.findMany({
+    const datePrefix = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-`;
+    const lastReceipt = await prisma.salesReceipt.findFirst({
       where: {
-        timestamp: {
-          gte: new Date(todayStr),
-          lt: new Date(new Date(todayStr).getTime() + 86400000),
-        },
+        invoiceNumber: { startsWith: datePrefix },
       },
+      orderBy: { timestamp: 'desc' },
       select: { invoiceNumber: true },
-      orderBy: { invoiceNumber: 'desc' },
-      take: 1,
     });
 
-    let invoiceNumber: string;
-    if (todayReceipts.length > 0) {
-      const lastInvoice = todayReceipts[0].invoiceNumber;
-      const lastNumber = parseInt(lastInvoice.split('-')[2], 10);
-      invoiceNumber = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastNumber + 1).padStart(4, '0')}`;
-    } else {
-      invoiceNumber = generateInvoiceNumber(0);
+    let nextIndex = 1;
+    if (lastReceipt) {
+      const parsed = parseInt(lastReceipt.invoiceNumber.slice(datePrefix.length), 10);
+      if (Number.isFinite(parsed)) {
+        nextIndex = parsed + 1;
+      }
     }
-    const cashChange = cashReceived - totals.total;
 
-    const receipt = await prisma.salesReceipt.create({
-      data: {
-        invoiceNumber,
-        billId: bill.id,
-        billNumber: bill.billNumber,
-        customer: bill.customer,
-        roomCharges: totals.roomChargesOriginal,
-        foodCharges: totals.foodCharges,
-        amenityCharges: totals.amenityCharges,
-        subtotal: totals.subtotal,
-        roomDiscount: totals.roomDiscountTotal,
-        tax: totals.tax,
-        foodServiceCharge: totals.foodServiceCharge,
-        total: totals.total,
-        cashReceived,
-        cashChange,
-        rooms: bill.roomBookings.map(r => ({
-          name: r.name,
-          roomNumber: r.roomNumber,
-          nights: r.nights,
-          pricePerNight: r.pricePerNight,
-          discountAmount: r.discountAmount,
-          boardPlan: r.boardPlan,
-          boardPlanPricePerNight: r.boardPlanPricePerNight,
-        })),
-        foods: bill.foodOrders.map(f => ({
-          name: f.name,
-          quantity: f.quantity,
-          price: f.price,
-        })),
-        amenities: bill.amenityCharges.map(a => ({
-          name: a.name,
-          quantity: a.quantity,
-          price: a.price,
-        })),
-      },
-    });
+    let invoiceNumber = `${datePrefix}${String(nextIndex).padStart(4, '0')}`;
+    let receipt;
+    while (true) {
+      try {
+        receipt = await prisma.salesReceipt.create({
+          data: {
+            invoiceNumber,
+            billId: bill.id,
+            billNumber: bill.billNumber,
+            customer: bill.customer,
+            roomCharges: totals.roomChargesOriginal,
+            foodCharges: totals.foodCharges,
+            amenityCharges: totals.amenityCharges,
+            subtotal: totals.subtotal,
+            roomDiscount: totals.roomDiscountTotal,
+            tax: totals.tax,
+            foodServiceCharge: totals.foodServiceCharge,
+            total: totals.total,
+            cashReceived,
+            cashChange: cashReceived - totals.total,
+            rooms: bill.roomBookings.map(r => ({
+              name: r.name,
+              roomNumber: r.roomNumber,
+              nights: r.nights,
+              pricePerNight: r.pricePerNight,
+              discountAmount: r.discountAmount,
+              boardPlan: r.boardPlan,
+              boardPlanPricePerNight: r.boardPlanPricePerNight,
+            })),
+            foods: bill.foodOrders.map(f => ({
+              name: f.name,
+              quantity: f.quantity,
+              price: f.price,
+            })),
+            amenities: bill.amenityCharges.map(a => ({
+              name: a.name,
+              quantity: a.quantity,
+              price: a.price,
+            })),
+          },
+        });
+        break;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          const target = error.meta?.target;
+          const isInvoiceTarget = Array.isArray(target) ? target.includes('invoiceNumber') : false;
+          if (isInvoiceTarget) {
+            nextIndex += 1;
+            invoiceNumber = `${datePrefix}${String(nextIndex).padStart(4, '0')}`;
+            continue;
+          }
+        }
+        throw error;
+      }
+    }
 
     const updatedBill = await prisma.bill.update({
       where: { id },
