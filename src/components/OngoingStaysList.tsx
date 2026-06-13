@@ -18,6 +18,7 @@ export default function OngoingStaysList({
   serviceChargeRate = 10,
   taxRate = 5
 }: OngoingStaysListProps) {
+ 
   const heldBills = bills.filter(b => b.status === 'held');
 
   if (heldBills.length === 0) {

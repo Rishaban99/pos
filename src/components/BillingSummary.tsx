@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bill } from '../types';
-import { calculateBillTotals } from '../utils/billing';
+import { Bill, CustomerSnapshot, RoomBookingItem, BoardPlan } from '../types';
+import { calculateBillTotals, BOARD_PLAN_PRICES } from '../utils/billing';
 import { Receipt, Tag, Percent, Banknote, Coins, AlertCircle, ShoppingBag, BedDouble, Sparkles, User, Phone, ArrowLeftRight, Trash2, Pencil } from 'lucide-react';
 
 interface BillingSummaryProps {
@@ -10,6 +10,8 @@ interface BillingSummaryProps {
   onRemoveAmenity: (amenityId: string) => void;
   onUpdateAmenityQuantity: (amenityId: string, delta: number) => void;
   onRemoveRoom: (roomId: string) => void;
+  onUpdateCustomer: (customer: CustomerSnapshot) => void;
+  onUpdateRoom: (roomId: string, updatedRoom: Partial<RoomBookingItem>) => void;
   onCloseBill: (cashReceived: number) => void;
   onDeleteBill?: (billId: string) => void;
   onEditBill?: () => void;
@@ -23,10 +25,12 @@ interface BillingSummaryProps {
 export default function BillingSummary({
   activeBill,
   onRemoveFood,
-  onRemoveRoom,
   onUpdateFoodQuantity,
   onRemoveAmenity,
   onUpdateAmenityQuantity,
+  onRemoveRoom,
+  onUpdateCustomer,
+  onUpdateRoom,
   onCloseBill,
   onDeleteBill,
   onEditBill,
@@ -40,6 +44,14 @@ export default function BillingSummary({
   const [showPayment, setShowPayment] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [customerDraft, setCustomerDraft] = useState<CustomerSnapshot>({ name: '', phone: '' });
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [roomEditDraft, setRoomEditDraft] = useState<{
+    nights: number;
+    boardPlan: BoardPlan;
+    discountReason: string;
+  } | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +59,10 @@ export default function BillingSummary({
     setShowPayment(false);
     setShowDeleteModal(false);
     setErrorMessage(null);
+    setEditingCustomer(false);
+    setCustomerDraft(activeBill?.customer ?? { name: '', phone: '' });
+    setEditingRoomId(null);
+    setRoomEditDraft(null);
   }, [activeBill?.id]);
 
   useEffect(() => {
@@ -129,11 +145,9 @@ export default function BillingSummary({
               <ArrowLeftRight className="size-3" /> Switch bill
             </button>
           )}
-          {onEditBill && (
-            <button type="button" onClick={onEditBill} className="text-[10px] text-brand-100 hover:text-white flex items-center gap-1 underline">
-              <Pencil className="size-3" /> Edit bill
-            </button>
-          )}
+          <button type="button" onClick={() => setEditingCustomer(prev => !prev)} className="text-[10px] text-brand-100 hover:text-white flex items-center gap-1 underline">
+            <Pencil className="size-3" /> {editingCustomer ? 'Cancel edit' : 'Edit guest'}
+          </button>
           {onDeleteBill && (
             <button type="button" onClick={() => setShowDeleteModal(true)} className="text-[10px] text-red-300 hover:text-red-100 flex items-center gap-1 underline ml-auto">
               <Trash2 className="size-3" /> Delete bill
@@ -141,6 +155,72 @@ export default function BillingSummary({
           )}
         </div>
       </div>
+
+      {editingCustomer && (
+        <div className="bg-white p-4 border-t border-brand-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-bold uppercase text-brand-500">Full Name</label>
+              <input
+                type="text"
+                value={customerDraft.name}
+                onChange={(e) => setCustomerDraft(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 text-xs outline-hidden focus:border-hotel-600"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-brand-500">Phone</label>
+              <input
+                type="text"
+                value={customerDraft.phone}
+                onChange={(e) => setCustomerDraft(prev => ({ ...prev, phone: e.target.value }))}
+                className="w-full bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 text-xs outline-hidden focus:border-hotel-600"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-brand-500">Email</label>
+              <input
+                type="email"
+                value={customerDraft.email ?? ''}
+                onChange={(e) => setCustomerDraft(prev => ({ ...prev, email: e.target.value || undefined }))}
+                className="w-full bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 text-xs outline-hidden focus:border-hotel-600"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-brand-500">ID / Passport</label>
+              <input
+                type="text"
+                value={customerDraft.idNumber ?? ''}
+                onChange={(e) => setCustomerDraft(prev => ({ ...prev, idNumber: e.target.value || undefined }))}
+                className="w-full bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 text-xs outline-hidden focus:border-hotel-600"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (!customerDraft.name.trim() || !customerDraft.phone.trim()) return;
+                onUpdateCustomer(customerDraft);
+                setEditingCustomer(false);
+              }}
+              className="px-3 py-2 bg-hotel-700 hover:bg-hotel-800 text-white text-[10px] uppercase rounded-lg"
+            >
+              Save guest
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingCustomer(false);
+                setCustomerDraft(customer);
+              }}
+              className="px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 text-[10px] uppercase rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto">
         <div className="p-4 space-y-5">
@@ -170,10 +250,98 @@ export default function BillingSummary({
                       )}
                     </div>
                     <span className="font-mono font-bold">{currencySymbol}{item.totalPrice.toFixed(2)}</span>
-                    <button type="button" onClick={() => onRemoveRoom(item.id)} className="text-[10px] text-brand-300 hover:text-red-500 flex items-center gap-1">
-                      <Trash2 className="size-3" /> Delete
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingRoomId(prev => (prev === item.id ? null : item.id));
+                          setRoomEditDraft({
+                            nights: item.nights,
+                            boardPlan: item.boardPlan ?? 'Room Only',
+                            discountReason: item.discountReason ?? '',
+                          });
+                        }}
+                        className="text-[10px] text-brand-100 hover:text-white flex items-center gap-1 underline"
+                      >
+                        <Pencil className="size-3" /> Edit
+                      </button>
+                      <button type="button" onClick={() => onRemoveRoom(item.id)} className="text-[10px] text-brand-300 hover:text-red-500 flex items-center gap-1">
+                        <Trash2 className="size-3" /> Delete
+                      </button>
+                    </div>
                   </div>
+                  {editingRoomId === item.id && roomEditDraft && (
+                    <div className="mt-3 space-y-3 bg-white p-3 rounded-lg border border-brand-100 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-brand-500 mb-1">Nights</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={roomEditDraft.nights}
+                            onChange={(e) => setRoomEditDraft(prev => prev ? ({ ...prev, nights: Math.max(1, Number(e.target.value) || 1) }) : null)}
+                            className="w-full bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 text-xs outline-hidden"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-brand-500 mb-1">Board plan</label>
+                          <select
+                            value={roomEditDraft.boardPlan}
+                            onChange={(e) => setRoomEditDraft(prev => prev ? ({ ...prev, boardPlan: e.target.value as BoardPlan }) : null)}
+                            className="w-full bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 text-xs outline-hidden"
+                          >
+                            <option value="Room Only">Room Only</option>
+                            <option value="Bed & Breakfast (BB)">Bed & Breakfast</option>
+                            <option value="Half Board (HB)">Half Board</option>
+                            <option value="Full Board (FB)">Full Board</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-brand-500 mb-1">Discount note</label>
+                          <input
+                            type="text"
+                            value={roomEditDraft.discountReason}
+                            onChange={(e) => setRoomEditDraft(prev => prev ? ({ ...prev, discountReason: e.target.value }) : null)}
+                            className="w-full bg-brand-50 border border-brand-200 rounded-lg py-2 px-3 text-xs outline-hidden"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!roomEditDraft) return;
+                            const boardPlanPrice = BOARD_PLAN_PRICES[roomEditDraft.boardPlan];
+                            const basePrice = (item.pricePerNight + boardPlanPrice) * roomEditDraft.nights;
+                            const discountAmount = basePrice * (item.discountPercentage / 100);
+                            onUpdateRoom(item.id, {
+                              nights: roomEditDraft.nights,
+                              boardPlan: roomEditDraft.boardPlan,
+                              boardPlanPricePerNight: boardPlanPrice,
+                              discountReason: roomEditDraft.discountReason,
+                              discountAmount,
+                              totalPrice: Math.max(0, basePrice - discountAmount),
+                            });
+                            setEditingRoomId(null);
+                            setRoomEditDraft(null);
+                          }}
+                          className="px-3 py-2 bg-hotel-700 hover:bg-hotel-800 text-white text-[10px] uppercase rounded-lg"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingRoomId(null);
+                            setRoomEditDraft(null);
+                          }}
+                          className="px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 text-[10px] uppercase rounded-lg"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

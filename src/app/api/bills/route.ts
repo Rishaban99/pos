@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { jsonError, requirePermission, requireSession } from '@/lib/auth-server';
 import { mapBill } from '@/lib/mappers';
@@ -45,34 +46,72 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const billCount = await prisma.bill.count();
-    const bill = await prisma.bill.create({
-      data: {
-        billNumber: generateBillNumber(billCount),
-        customerId,
-        customer: {
-          name: customerSnapshot.name,
-          phone: customerSnapshot.phone,
-          email: customerSnapshot.email ?? null,
-          idNumber: customerSnapshot.idNumber ?? null,
-        },
-        status: 'held',
-        roomBookings: roomBookings.map(r => ({
-          id: r.id,
-          name: r.name,
-          roomNumber: r.roomNumber,
-          pricePerNight: r.pricePerNight,
-          nights: r.nights,
-          discountPercentage: r.discountPercentage,
-          discountAmount: r.discountAmount,
-          boardPlan: r.boardPlan ?? null,
-          boardPlanPricePerNight: r.boardPlanPricePerNight ?? null,
-          totalPrice: r.totalPrice,
-        })),
-        foodOrders: [],
-        amenityCharges: [],
+    const now = new Date();
+    const datePrefix = `BILL-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-`;
+    const lastBill = await prisma.bill.findFirst({
+      where: {
+        billNumber: { startsWith: datePrefix },
       },
+      orderBy: { billNumber: 'desc' },
+      select: { billNumber: true },
     });
+
+    let nextCount = 0;
+    if (lastBill) {
+      const suffix = lastBill.billNumber.slice(datePrefix.length);
+      const parsed = parseInt(suffix, 10);
+      if (Number.isFinite(parsed)) {
+        nextCount = Math.max(0, parsed - 1000);
+      }
+    }
+
+    let bill;
+    while (true) {
+      try {
+        bill = await prisma.bill.create({
+          data: {
+            billNumber: generateBillNumber(nextCount),
+            customerId,
+            customer: {
+              name: customerSnapshot.name,
+              phone: customerSnapshot.phone,
+              email: customerSnapshot.email ?? null,
+              idNumber: customerSnapshot.idNumber ?? null,
+            },
+            status: 'held',
+            roomBookings: roomBookings.map(r => ({
+              id: r.id,
+              name: r.name,
+              roomNumber: r.roomNumber,
+              pricePerNight: r.pricePerNight,
+              nights: r.nights,
+              discountPercentage: r.discountPercentage,
+              discountAmount: r.discountAmount,
+              boardPlan: r.boardPlan ?? null,
+              boardPlanPricePerNight: r.boardPlanPricePerNight ?? null,
+              totalPrice: r.totalPrice,
+            })),
+            foodOrders: [],
+            amenityCharges: [],
+          },
+        });
+        break;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          const target = error.meta?.target;
+          const isBillNumberTarget = Array.isArray(target)
+            ? target.includes('billNumber')
+            : typeof target === 'string'
+            ? target.includes('billNumber')
+            : true;
+          if (isBillNumberTarget) {
+            nextCount += 1;
+            continue;
+          }
+        }
+        throw error;
+      }
+    }
 
     const roomIds = roomBookings.map(r => r.id);
     if (roomIds.length > 0) {

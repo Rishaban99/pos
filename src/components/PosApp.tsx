@@ -635,6 +635,27 @@ export default function App() {
     playBeep(400, 0.06);
   };
 
+  const handleUpdateCustomer = (customer: CustomerSnapshot) => {
+    if (!hasPermission('bills:update')) return;
+    if (!activeBillId) return;
+    updateActiveBill(bill => ({ ...bill, customer }));
+    playBeep(650, 0.05);
+    setCheckoutNotice('Guest details updated.');
+    setTimeout(() => setCheckoutNotice(null), 3000);
+  };
+
+  const handleUpdateRoom = (roomId: string, updatedRoom: Partial<RoomBookingItem>) => {
+    if (!hasPermission('bills:update')) return;
+    if (!activeBillId) return;
+    updateActiveBill(bill => ({
+      ...bill,
+      roomBookings: bill.roomBookings.map(rb => (rb.id === roomId ? { ...rb, ...updatedRoom } : rb)),
+    }));
+    playBeep(600, 0.05);
+    setCheckoutNotice('Room booking details updated.');
+    setTimeout(() => setCheckoutNotice(null), 3000);
+  };
+
   const handleCloseBill = async (cashReceived: number) => {
     if (!hasPermission('bills:complete')) return;
     const bill = getActiveHeldBill();
@@ -1077,6 +1098,8 @@ export default function App() {
             onUpdateFoodQuantity={handleUpdateFoodQuantity}
             onRemoveAmenity={handleRemoveAmenity}
             onUpdateAmenityQuantity={handleUpdateAmenityQuantity}
+            onUpdateCustomer={handleUpdateCustomer}
+            onUpdateRoom={handleUpdateRoom}
             onCloseBill={handleCloseBill}
             onDeleteBill={handleDeleteBill}
             onEditBill={handleEditBill}

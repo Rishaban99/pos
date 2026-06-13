@@ -9,6 +9,13 @@ import {
   DEFAULT_DISCOUNT_SETTINGS,
 } from '../types';
 
+export const BOARD_PLAN_PRICES: Record<BoardPlan, number> = {
+  'Room Only': 0,
+  'Bed & Breakfast (BB)': 20,
+  'Half Board (HB)': 40,
+  'Full Board (FB)': 60,
+};
+
 export function resolveAutoDiscountPercent(
   nights: number,
   discountSettings: DiscountSettings = DEFAULT_DISCOUNT_SETTINGS
